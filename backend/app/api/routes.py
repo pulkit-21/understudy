@@ -9,17 +9,17 @@ from __future__ import annotations
 
 import asyncio
 import json
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from ..db.repositories import TraceRepo, WorkflowRepo
 from ..induction.heuristic import induce_heuristic
 from ..induction.llm import InductionError, enrich_with_llm
 from ..models.trace import Trace
 from ..models.workflow import WorkflowSpec
-from ..recorder.session import RecordingSession, TraceStore
+from ..recorder.session import RecordingSession
 from ..executor.manager import RunManager
 
 
@@ -42,27 +42,7 @@ class StartRecordingBody(BaseModel):
     start_url: str | None = None
 
 
-class WorkflowStore:
-    """Filesystem-backed workflow storage (JSON: diffable, versionable)."""
-
-    def __init__(self, root: Path):
-        self.root = root
-        self.root.mkdir(parents=True, exist_ok=True)
-
-    def save(self, spec: WorkflowSpec) -> None:
-        (self.root / f"{spec.id}.json").write_text(
-            spec.model_dump_json(indent=2))
-
-    def load(self, wf_id: str) -> WorkflowSpec | None:
-        p = self.root / f"{wf_id}.json"
-        return WorkflowSpec.model_validate_json(p.read_text()) if p.exists() else None
-
-    def list(self) -> list[WorkflowSpec]:
-        return [WorkflowSpec.model_validate_json(p.read_text())
-                for p in sorted(self.root.glob("*.json"))]
-
-
-def build_router(traces: TraceStore, workflows: WorkflowStore,
+def build_router(traces: TraceRepo, workflows: WorkflowRepo,
                  runs: RunManager) -> APIRouter:
     r = APIRouter(prefix="/api")
 
@@ -193,6 +173,11 @@ def build_router(traces: TraceStore, workflows: WorkflowStore,
             raise HTTPException(422, detail=f"missing parameters: {missing}")
         run = runs.start_run(spec, body.params)
         return {"run_id": run.id}
+
+    @r.get("/runs")
+    def list_runs():
+        """Run history — lightweight summaries, newest first."""
+        return runs.list()
 
     @r.get("/runs/{run_id}")
     def get_run(run_id: str):

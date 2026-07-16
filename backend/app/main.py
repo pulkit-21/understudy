@@ -15,14 +15,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api.routes import WorkflowStore, build_router
+from .api.routes import build_router
+from .db import RunRepo, SessionLocal, TraceRepo, WorkflowRepo, run_migrations
 from .executor.manager import RunManager
 from .mockapps.routes import router as mockapps_router
-from .recorder.session import TraceStore
 
 DATA_DIR = Path(os.environ.get("UNDERSTUDY_DATA", "./data"))
 BASE_URL = os.environ.get("UNDERSTUDY_BASE_URL", "http://localhost:8000")
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+# Provision the schema before anything reads/writes (idempotent).
+run_migrations()
 
 app = FastAPI(title="Understudy", version="0.1.0")
 app.add_middleware(
@@ -30,9 +33,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-traces = TraceStore(DATA_DIR / "traces")
-workflows = WorkflowStore(DATA_DIR / "workflows")
-runs = RunManager(base_url=BASE_URL, log_dir=DATA_DIR / "runs",
+traces = TraceRepo(SessionLocal)
+workflows = WorkflowRepo(SessionLocal)
+runs = RunManager(base_url=BASE_URL, run_repo=RunRepo(SessionLocal),
                   headless=os.environ.get("UNDERSTUDY_HEADFUL") != "1")
 
 app.include_router(mockapps_router)

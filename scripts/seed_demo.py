@@ -15,19 +15,19 @@ sys.path.insert(0, str(ROOT))
 
 import asyncio  # noqa: E402
 
+from app.db import (  # noqa: E402
+    SessionLocal, TraceRepo, WorkflowRepo, resolve_url, run_migrations,
+)
 from app.induction.llm import induce  # noqa: E402
-from app.recorder.session import TraceStore  # noqa: E402
-from app.api.routes import WorkflowStore  # noqa: E402
-from tests.conftest import demo_trace  # noqa: E402
+from app.seed import build_demo_trace  # noqa: E402
 
 BASE_URL = os.environ.get("UNDERSTUDY_BASE_URL", "http://localhost:8000")
-DATA = Path(os.environ.get("UNDERSTUDY_DATA", ROOT / "data"))
 
 
 def main() -> None:
-    trace = demo_trace.__wrapped__()
-    for e in trace.events:
-        e.url = e.url.replace("http://localhost:8000", BASE_URL)
+    run_migrations()  # ensure the schema exists before writing
+
+    trace = build_demo_trace(base=BASE_URL)
     trace.id = "demo-seed-001"
 
     # Full pipeline: deterministic draft, then LLM legibility pass if a key is
@@ -36,11 +36,11 @@ def main() -> None:
     spec = asyncio.run(induce(trace))
     spec.id = "wf-demo-invoice"
 
-    TraceStore(DATA / "traces").save(trace)
-    WorkflowStore(DATA / "workflows").save(spec)
+    TraceRepo(SessionLocal).save(trace)
+    WorkflowRepo(SessionLocal).save(spec)
     print(f"seeded trace {trace.id} ({len(trace.events)} events) and workflow "
           f"{spec.id} ({len(spec.steps)} steps, params="
-          f"{[p.key for p in spec.parameters]}) into {DATA}")
+          f"{[p.key for p in spec.parameters]}) into {resolve_url()}")
 
 
 if __name__ == "__main__":

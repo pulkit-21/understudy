@@ -6,19 +6,20 @@ are the trace, the spec, and the run's event log (persisted on completion).
 from __future__ import annotations
 
 import asyncio
-import json
-from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from ..models.workflow import WorkflowSpec
 from .runner import Run, Runner, PlaywrightSink
 
+if TYPE_CHECKING:
+    from ..db.repositories import RunRepo
+
 
 class RunManager:
-    def __init__(self, base_url: str, log_dir: Path, headless: bool = True):
+    def __init__(self, base_url: str, run_repo: "RunRepo",
+                 headless: bool = True):
         self.base_url = base_url
-        self.log_dir = log_dir
-        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.repo = run_repo
         self.headless = headless
         self.runs: dict[str, Run] = {}
         self.runners: dict[str, Runner] = {}
@@ -30,6 +31,7 @@ class RunManager:
         queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
         self.runs[run.id] = run
         self.queues[run.id] = queue
+        self.repo.save(run)  # persist immediately so it shows in run history
         self._tasks[run.id] = asyncio.create_task(
             self._execute(spec, run, queue))
         return run
@@ -53,7 +55,7 @@ class RunManager:
             ) if run.events else _failed_event(e))
         finally:
             await queue.put(None)  # SSE sentinel: stream is over
-            self._persist(run)
+            self.repo.save(run)    # persist terminal state (completed/failed/…)
             self.runners.pop(run.id, None)
 
     def approve(self, run_id: str) -> bool:
@@ -71,12 +73,11 @@ class RunManager:
         return True
 
     def get(self, run_id: str) -> Optional[Run]:
-        return self.runs.get(run_id)
+        # live run (in memory) wins; else the persisted terminal state
+        return self.runs.get(run_id) or self.repo.get(run_id)
 
-    def _persist(self, run: Run) -> None:
-        path = self.log_dir / f"{run.id}.json"
-        path.write_text(json.dumps(run.model_dump(mode="json"), indent=2,
-                                   default=str))
+    def list(self, limit: int = 100) -> list[dict]:
+        return self.repo.list(limit=limit)
 
 
 def _failed_event(e: Exception):

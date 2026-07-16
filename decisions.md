@@ -473,3 +473,49 @@ toolchain — paid down by same-origin serving so it's still one deploy.
 
 **Deliberately cut.** Auth, optimistic caching/react-query, a component library,
 dark mode. Not needed at this surface.
+
+---
+
+## D21 — Real persistence: SQLAlchemy + Alembic, document-per-row, SQLite→Postgres by env
+
+**Decision.** Replace the JSON/in-memory stores with a proper database:
+SQLAlchemy 2.0 ORM, Alembic migrations (run on boot), and a repository layer
+that is the only code touching the ORM. Each aggregate (trace, workflow, run)
+is one row storing the domain Pydantic model as a JSON `payload` **plus**
+extracted, indexed columns (name, status, workflow_id, timestamps) for the
+queries the UI runs. `DATABASE_URL` unset → SQLite under the data dir (zero-ops
+demo default); set to a `postgres://` URL → Postgres. Runs now persist at start
+and at terminal state, so there's a durable run history.
+
+**Alternatives considered.**
+- *Keep JSON files* (the Day-1 choice). Genuinely fine for the artifacts —
+  they're document-shaped and inspectable — but reads as a prototype next to the
+  reference solutions, and gave no run history, no concurrent-safe writes, no
+  queryable metadata. The reference bar is a real DB; this is the gap-closer.
+- *Full normalization* (tables for steps, events, params with FKs). Correct when
+  data is relational; wrong here — a spec is one nested tree, a run carries its
+  own embedded event log. Normalizing them would be mapping code for no query we
+  actually run, and would lose the verbatim round-trip.
+- *Postgres-only.* Matches the references exactly but adds a managed-DB
+  dependency to a demo that should run in one command. SQLite-default +
+  Postgres-by-env keeps `git clone && run` friction-free while proving the
+  code is backend-agnostic (the repository layer is the seam).
+
+**Reasoning / tradeoff.** Document-per-row is the honest model for these
+aggregates: it keeps the "inspectable JSON" property the file store gave us
+(the payload is the exact domain model) while adding a real schema, migrations,
+indexed listing, and durability. Verified by restarting the server mid-history
+and reading a completed run — 33 events + live extracts — back from disk.
+Tradeoff accepted: JSON columns aren't as queryable as normalized fields, but
+the extracted columns cover every list/filter the product needs.
+
+**What I deliberately cut.** Per-field normalization, an async DB driver
+(sync sessions are simple and fine at demo scale; documented as a scaling
+boundary), and connection pooling tuning.
+
+**Bug found while doing it.** The seed script imported the demo trace from
+`tests/conftest.py`, which now sets `DATABASE_URL` to a temp DB on import — so
+migrations ran against the temp DB while the repo wrote to the real one
+("no such table"). Fixed by moving the canonical demo trace into `app/seed.py`
+so runtime code never imports test modules. Lesson banked: test setup leaking
+into a runtime import path is a real hazard.

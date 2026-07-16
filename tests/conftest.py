@@ -7,86 +7,38 @@ deployed demo, so tests and demo exercise the same data path.
 """
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
+# Point the whole suite at an isolated temp DB + data dir BEFORE any app module
+# imports the engine. Without this, tests would read/write the real ./data
+# store (the clutter bug we hit in Day 3). conftest is imported before test
+# modules, so setting these here is early enough.
+_TMP = tempfile.mkdtemp(prefix="understudy-test-")
+os.environ.setdefault("UNDERSTUDY_DATA", _TMP)
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{_TMP}/test.db")
+
 import pytest
 
-from app.models.trace import (
-    EventType, ReadableField, SemanticEvent, TargetInfo, Trace,
-)
+from app.db import Base, engine
+from app.seed import build_demo_trace
+from app.models.trace import Trace
 
 BASE = "http://localhost:8000"
 
 
-def _t(**kw) -> TargetInfo:
-    return TargetInfo(**kw)
-
-
-def _f(testid: str, label: str, value: str) -> ReadableField:
-    return ReadableField(testid=testid, label=label, value=value)
-
-
-# What the recorder snapshots on the INV-1001 detail page: labelled, testid'd
-# values (see mockapps/templates/portal_detail.html). Induction matches typed
-# values against these to produce `extract` steps with real targets.
-INV1001_FIELDS = [
-    _f("inv-number", "Invoice number", "INV-1001"),
-    _f("inv-vendor", "Vendor", "Northwind Logistics"),
-    _f("inv-date", "Invoice date", "2026-06-02"),
-    _f("inv-amount", "Amount", "4820.00"),
-    _f("inv-currency", "Currency", "USD"),
-    _f("inv-gl", "Suggested GL code", "6100"),
-    _f("inv-memo", "Memo", "Freight"),
-]
+@pytest.fixture(autouse=True)
+def _clean_db():
+    """Fresh schema per test — isolation without migration overhead."""
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+    yield
 
 
 @pytest.fixture()
 def demo_trace() -> Trace:
-    ts = iter(range(1_000, 100_000, 1_500))
-    ev = []
-
-    def add(type_: EventType, url: str, *, target=None, value=None,
-            page_title=None, page_text=None, readable_fields=None):
-        ev.append(SemanticEvent(
-            type=type_, url=url, ts_ms=next(ts), target=target, value=value,
-            page_title=page_title, page_text=page_text,
-            readable_fields=readable_fields or []))
-
-    add(EventType.NAVIGATE, f"{BASE}/portal", page_title="Vendra — Invoices",
-        page_text="Received invoices INV-1001 Northwind Logistics 2026-06-02 "
-                  "USD 4820.00 Open INV-1002 Cloudpeak Hosting …")
-    add(EventType.CLICK, f"{BASE}/portal",
-        target=_t(role="link", name="Open", testid="open-INV-1001", tag="a"))
-    add(EventType.NAVIGATE, f"{BASE}/portal/invoice/INV-1001",
-        page_title="Vendra — INV-1001",
-        page_text="Invoice INV-1001 Invoice number INV-1001 Vendor "
-                  "Northwind Logistics Invoice date 2026-06-02 Amount 4820.00 "
-                  "Currency USD Suggested GL code 6100 Memo Freight",
-        readable_fields=INV1001_FIELDS)
-    add(EventType.NAVIGATE, f"{BASE}/erp/new", page_title="LedgerOne — New bill",
-        page_text="Enter new bill Vendor name Invoice number Invoice date "
-                  "Amount GL code Post bill")
-    add(EventType.FILL, f"{BASE}/erp/new", value="Northwind Logistics",
-        target=_t(role="textbox", name="Vendor name",
-                  testid="field-vendor", tag="input"))
-    add(EventType.FILL, f"{BASE}/erp/new", value="INV-1001",
-        target=_t(role="textbox", name="Invoice number",
-                  testid="field-invoice-number", tag="input"))
-    add(EventType.FILL, f"{BASE}/erp/new", value="2026-06-02",
-        target=_t(role="textbox", name="Invoice date",
-                  testid="field-invoice-date", tag="input"))
-    add(EventType.FILL, f"{BASE}/erp/new", value="4820.00",
-        target=_t(role="textbox", name="Amount",
-                  testid="field-amount", tag="input"))
-    add(EventType.SELECT, f"{BASE}/erp/new", value="6100",
-        target=_t(role="combobox", name="GL code",
-                  testid="field-gl-code", tag="select"))
-    add(EventType.SUBMIT, f"{BASE}/erp/new",
-        target=_t(role="button", name="Post bill",
-                  testid="post-bill", tag="button"))
-
-    return Trace(name="Post vendor invoice to LedgerOne", events=ev,
-                 start_url=f"{BASE}/portal")
+    return build_demo_trace(base=BASE)

@@ -16,7 +16,6 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Optional
 
 from ..models.trace import SemanticEvent, Trace
 
@@ -62,30 +61,3 @@ class RecordingSession:
         if self._pw:
             await self._pw.stop()
         return self.trace
-
-
-class TraceStore:
-    """Filesystem-backed trace storage. JSON on disk: inspectable, diffable,
-    and directly usable as test fixtures."""
-
-    def __init__(self, root: Path):
-        self.root = root
-        self.root.mkdir(parents=True, exist_ok=True)
-
-    def save(self, trace: Trace) -> Path:
-        path = self.root / f"{trace.id}.json"
-        path.write_text(trace.model_dump_json(indent=2))
-        return path
-
-    def load(self, trace_id: str) -> Optional[Trace]:
-        path = self.root / f"{trace_id}.json"
-        if not path.exists():
-            return None
-        return Trace.model_validate_json(path.read_text())
-
-    def list(self) -> list[Trace]:
-        return sorted(
-            (Trace.model_validate_json(p.read_text())
-             for p in self.root.glob("*.json")),
-            key=lambda t: t.started_at,
-        )
