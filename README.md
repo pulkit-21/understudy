@@ -12,7 +12,7 @@ A user demonstrates once: open the **Vendra** invoice portal, open invoice INV-1
 
 - **Semantic traces, not macros.** RPA-style click recording breaks the moment a page changes. Understudy captures each action as *role + accessible name + data-testid + CSS fallback*, and the executor resolves targets through that chain at replay time (`testid → role+name → css`), reporting when it "healed" via a fallback.
 - **The learned artifact is legible and editable.** The workflow spec is plain JSON: every step carries a one-sentence `intent`, values reference `{{parameters}}` or `{{extract.*}}` outputs, and risky steps carry `requires_approval`. A finance reviewer can audit the procedure; the UI can render it as an editable list. Trust in the artifact *is* the product.
-- **Deterministic first, LLM second.** A heuristic inducer produces a structurally-valid spec offline (testable, reproducible, CI-friendly). An LLM enrichment layer improves naming, parameterization, and — its unique contribution — **provenance**: linking typed values back to the page they were read from, converting them into live `extract` steps. Enrichment is validated against hard invariants (may never remove an approval gate, may never invent selectors) and falls back to the heuristic spec on any violation.
+- **Deterministic first, LLM second.** The heuristic inducer does the load-bearing work *deterministically* — including **provenance**: it rewrites the click that opened one invoice into a parameterized navigate, and turns values that were read off a page and typed later into live `extract` steps (targeting the page's real testids, captured as `readable_fields`). The result needs only `invoice_id`; everything else is read live — with **no API key, in CI, exactly tested**. The LLM layer then does only **legibility** (reviewer-grade step intents, a phase-listing description), behind a hard structural invariant: it may never change an action, target, value, or approval gate, and any deviation falls back to the deterministic spec. Correctness never depends on the model.
 - **Irreversible actions are gated by construction.** `risk: commit` without `requires_approval: true` fails spec validation. The executor's pause has no timeout bypass.
 
 **Deliberately out of scope:** real third-party sites (auth, 2FA, CAPTCHA), credential handling, multi-site generalization, and a Chrome-extension recorder (the capture script is extension-portable, but store review doesn't fit the timeline; the Playwright demonstration browser is the primary recorder).
@@ -68,7 +68,8 @@ backend/app/induction/    heuristic baseline + LLM enrichment
 backend/app/executor/     Runner, approval gates, PlaywrightSink, RunManager
 backend/app/mockapps/     Vendra + LedgerOne (deterministic demo stage)
 backend/app/api/          REST + SSE
-tests/                    contract, induction, executor, e2e tests
+tests/                    contract, induction, executor, e2e, API tests
 scripts/                  seed_demo.py, eval.py
+decisions.md              the judgment log — what I chose, rejected, and why
 CLAUDE.md                 build state + remaining plan (for Claude Code)
 ```
