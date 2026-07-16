@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}LedgerOne — AP Bills{% endblock %}
+{% block body %}
+<h1>Accounts payable</h1>
+<p class="sub">Posted vendor bills. <a href="/erp/new" data-testid="new-bill">＋ Enter new bill</a></p>
+{% if flash %}<div class="notice" data-testid="post-confirmation">{{ flash }}</div>{% endif %}
+<table data-testid="bills-table">
+  <thead><tr><th>Ref</th><th>Vendor</th><th>Invoice #</th><th>Date</th><th>GL</th><th class="right">Amount</th></tr></thead>
+  <tbody>
+  {% for b in bills %}
+    <tr data-testid="bill-{{ b.invoice_number }}">
+      <td>{{ b.ref }}</td><td>{{ b.vendor }}</td><td>{{ b.invoice_number }}</td>
+      <td>{{ b.invoice_date }}</td><td>{{ b.gl_code }}</td><td class="right">{{ b.amount }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" style="color:var(--mut)">No bills posted yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

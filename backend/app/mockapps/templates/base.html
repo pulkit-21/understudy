@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{% endblock %}</title>
+<style>
+  :root { --ink:#1c2430; --mut:#67707d; --line:#dde2e8; --bg:#f5f6f8; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 "Segoe UI", system-ui, sans-serif;
+         color:var(--ink); background:var(--bg); }
+  header.appbar { display:flex; align-items:center; gap:10px;
+    padding:12px 28px; color:#fff; background:var(--brand); }
+  header.appbar .logo { font-weight:700; letter-spacing:.4px; font-size:17px; }
+  header.appbar .env { margin-left:auto; font-size:12px; opacity:.85;
+    border:1px solid rgba(255,255,255,.5); padding:2px 8px; border-radius:3px; }
+  main { max-width:880px; margin:28px auto; padding:0 20px; }
+  h1 { font-size:21px; margin:0 0 4px; }
+  p.sub { color:var(--mut); margin:0 0 22px; }
+  table { width:100%; border-collapse:collapse; background:#fff;
+    border:1px solid var(--line); }
+  th { text-align:left; font-size:12px; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--mut); padding:10px 14px;
+    border-bottom:1px solid var(--line); }
+  td { padding:11px 14px; border-bottom:1px solid var(--line); }
+  tr:last-child td { border-bottom:none; }
+  a { color:var(--brand); }
+  .card { background:#fff; border:1px solid var(--line); padding:24px 28px; }
+  .kv { display:grid; grid-template-columns:180px 1fr; row-gap:10px; }
+  .kv dt { color:var(--mut); }
+  .kv dd { margin:0; font-weight:600; }
+  label { display:block; font-size:13px; color:var(--mut); margin:14px 0 4px; }
+  input, select { width:100%; padding:9px 10px; font:inherit;
+    border:1px solid var(--line); border-radius:4px; background:#fff; }
+  input:focus, select:focus { outline:2px solid var(--brand); outline-offset:1px; }
+  button { margin-top:20px; padding:10px 22px; font:inherit; font-weight:600;
+    color:#fff; background:var(--brand); border:none; border-radius:4px;
+    cursor:pointer; }
+  .notice { background:#eef7ef; border:1px solid #bfe3c2; padding:14px 18px;
+    margin-bottom:20px; border-radius:4px; }
+  .right { text-align:right; }
+</style>
+</head>
+<body style="--brand: {{ brand_color }}">
+<header class="appbar">
+  <span class="logo">{{ brand_name }}</span>
+  <span class="env">sandbox</span>
+</header>
+<main>{% block body %}{% endblock %}</main>
+</body>
+</html>

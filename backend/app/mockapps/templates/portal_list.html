@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Vendra — Invoices{% endblock %}
+{% block body %}
+<h1>Received invoices</h1>
+<p class="sub">Invoices submitted by your vendors, newest first.</p>
+<table data-testid="invoice-table">
+  <thead><tr><th>Invoice #</th><th>Vendor</th><th>Date</th><th class="right">Amount</th><th></th></tr></thead>
+  <tbody>
+  {% for inv in invoices %}
+    <tr>
+      <td>{{ inv.id }}</td>
+      <td>{{ inv.vendor }}</td>
+      <td>{{ inv.date }}</td>
+      <td class="right">{{ inv.currency }} {{ inv.amount }}</td>
+      <td><a href="/portal/invoice/{{ inv.id }}" data-testid="open-{{ inv.id }}">Open</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

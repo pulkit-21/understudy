@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}LedgerOne — New bill{% endblock %}
+{% block body %}
+<h1>Enter new bill</h1>
+<p class="sub">Post a vendor bill to accounts payable.</p>
+<div class="card">
+  <form method="post" action="/erp/new" data-testid="bill-form">
+    <label for="vendor">Vendor name</label>
+    <input id="vendor" name="vendor" data-testid="field-vendor" required>
+    <label for="invoice_number">Invoice number</label>
+    <input id="invoice_number" name="invoice_number" data-testid="field-invoice-number" required>
+    <label for="invoice_date">Invoice date</label>
+    <input id="invoice_date" name="invoice_date" data-testid="field-invoice-date" placeholder="YYYY-MM-DD" required>
+    <label for="amount">Amount</label>
+    <input id="amount" name="amount" data-testid="field-amount" required>
+    <label for="gl_code">GL code</label>
+    <select id="gl_code" name="gl_code" data-testid="field-gl-code">
+      <option value="5010">5010 — Cost of goods</option>
+      <option value="6100">6100 — Freight &amp; logistics</option>
+      <option value="6300">6300 — Legal &amp; professional</option>
+      <option value="6420">6420 — Cloud &amp; hosting</option>
+      <option value="6510">6510 — Marketing</option>
+      <option value="6600">6600 — Facilities</option>
+    </select>
+    <button type="submit" data-testid="post-bill">Post bill</button>
+  </form>
+</div>
+{% endblock %}

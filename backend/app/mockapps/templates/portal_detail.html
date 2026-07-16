@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Vendra — {{ inv.id }}{% endblock %}
+{% block body %}
+<h1>Invoice {{ inv.id }}</h1>
+<p class="sub"><a href="/portal">← Back to all invoices</a></p>
+<div class="card">
+  <dl class="kv">
+    <dt>Invoice number</dt><dd data-testid="inv-number">{{ inv.id }}</dd>
+    <dt>Vendor</dt><dd data-testid="inv-vendor">{{ inv.vendor }}</dd>
+    <dt>Invoice date</dt><dd data-testid="inv-date">{{ inv.date }}</dd>
+    <dt>Amount</dt><dd data-testid="inv-amount">{{ inv.amount }}</dd>
+    <dt>Currency</dt><dd data-testid="inv-currency">{{ inv.currency }}</dd>
+    <dt>Suggested GL code</dt><dd data-testid="inv-gl">{{ inv.gl_code }}</dd>
+    <dt>Memo</dt><dd data-testid="inv-memo">{{ inv.memo }}</dd>
+  </dl>
+</div>
+{% endblock %}
