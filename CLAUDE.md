@@ -2,6 +2,14 @@
 
 Context for Claude Code sessions. Read README.md first for the product story.
 
+> **Status (current):** Days 1–5 complete. Added since Day 1: React control
+> panel, real persistence (SQLAlchemy + Alembic, SQLite→Postgres), CI + ruff +
+> mypy, a robustness suite (self-healing on dropped test-ids, safe failure,
+> concurrency, SSE replay), UI breadth (runs history, trace view, recording),
+> and Docker/`render.yaml` deploy with seed-on-boot. 41 tests green; eval 8/8 +
+> safe-fail. Full decision log in `decisions.md` (D1–D25). The section below is
+> the original Day-1 handoff, kept for history.
+
 ## What this is
 
 5-day take-home for Zamp.ai (fintech AI-agents company; product "Pace" is a
