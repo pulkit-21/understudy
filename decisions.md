@@ -286,3 +286,139 @@ shot" criteria. Tradeoff: the frontend can't scale independently of the API,
 which is irrelevant at this scale.
 
 **Deliberately cut.** Independent frontend hosting/CDN.
+
+---
+
+## D13 — Provenance is deterministic (in the heuristic), not the LLM's job
+
+**Decision.** Turning a value that was *read* off a page and *typed* later into a
+live `extract` step — the "invoice_id is the only input" capability — is done
+**deterministically in the heuristic inducer** by exact-matching typed values
+against the page's captured fields. It runs with no API key and in CI.
+
+**Alternatives considered.**
+- *LLM-owned provenance* (the original plan, [[decisions]] D8): hand the trace to
+  the model and let it infer which values were read where. Fewer moving parts in
+  the heuristic, but it makes the flagship capability non-reproducible, untestable
+  in CI, and broken whenever the key is absent or the model has an off day.
+
+**Reasoning / tradeoff.** The whole thesis (D5) is deterministic-first because
+finance work must be reproducible and auditable. It was incoherent to then make
+the *most important* transformation LLM-dependent. Exact-match provenance is
+simple, exact, and snapshot-testable; the eval now proves it live across all 8
+invoices (reading each one's real vendor/date/amount/GL, not fed values). The
+tradeoff: exact matching misses values that are reformatted between the source
+page and the ERP (e.g. `4,820.00` vs `4820.00`) — those fall back to being a
+parameter. That's the seam where the LLM earns its place (see D15).
+
+**Deliberately cut.** Fuzzy/semantic provenance in the deterministic layer —
+left as the LLM's documented extension.
+
+**Supersedes** the framing in D8 that provenance was "the LLM's unique
+contribution." The hard sub-problem is still owned — just deterministically.
+
+---
+
+## D14 — The recorder captures structured `readable_fields`, so extract targets are real
+
+**Decision.** On every navigation the recorder snapshots not just page text but a
+structured list of **readable fields** — each labelled, testid'd value visible on
+the page. Extract steps target the *actual* testid from that snapshot.
+
+**Alternatives considered.**
+- *page_text only* + let induction guess element selectors for extraction. But the
+  invoice page's values live in a `<dl>` with no form roles, so there's nothing to
+  reliably locate by — the inducer would have to *invent* a selector, which every
+  layer here is forbidden from doing.
+- *Have the user click each value during the demo* so it's captured as a normal
+  target. Unnatural — people read pages, they don't click every field.
+
+**Reasoning / tradeoff.** This is what makes deterministic provenance *honest*:
+the extract step points at an element the recorder genuinely saw, so the executor
+can locate it. I verified parity by running the real `inject.js` against the live
+mock app — a demonstration on INV-1005 produces exactly the fields the inducer
+needs. Tradeoff: more captured per page; capped and de-duped.
+
+---
+
+## D15 — The LLM is narrowed to legibility, behind a hard structural invariant
+
+**Decision.** Now that correctness is deterministic, the LLM enrichment layer may
+change *only* human-readable text: the workflow `name`, its `description`, and each
+step's `intent`. A structural invariant (`validate_enrichment`) rejects any
+enriched spec whose actions, targets, values, extract keys, risk levels, approval
+gates, or parameter set differ from the deterministic draft — on any violation we
+ship the draft. The stochastic layer can make the workflow nicer to read; it can
+never make it wrong.
+
+**Alternatives considered.**
+- *Let the LLM restructure freely* (rewrite steps, re-parameterize). More
+  "powerful", but it puts the model on the correctness path, which is exactly what
+  D5/D13 argue against — and it's far harder to test.
+
+**Reasoning / tradeoff.** Keeping the LLM off the correctness path makes the whole
+system trustworthy *and* testable: the invariant is a pure function unit-tested
+offline (gate removal, target changes, value changes, step add/remove all
+rejected), while the live call is exercised manually with a key. Tradeoff: the LLM
+can't *fix* a bad deterministic draft — but if the draft is wrong, the fix belongs
+in the deterministic layer where it's reproducible, not in a prompt.
+
+**Deliberately cut.** LLM-driven restructuring and re-parameterization.
+
+---
+
+## D16 — Default induction model: `claude-opus-4-8`
+
+**Decision.** The enrichment layer defaults to `claude-opus-4-8` (overridable via
+`UNDERSTUDY_MODEL`), temperature unset.
+
+**Alternatives considered.** The prior `claude-sonnet-4-6` default; a cheaper
+Haiku tier for a text-only task.
+
+**Reasoning / tradeoff.** This is an AI-agents showcase for an AI-agents company;
+defaulting to the latest, most capable model is the right signal, and enrichment
+is infrequent (once per induction), so cost is a non-issue. The task is
+low-volume, not latency-sensitive. (Opus 4.8 rejects `temperature`, so it's
+omitted — the structural invariant, not sampling, is what makes output safe.)
+
+**Deliberately cut.** A cost-tuned model tier — irrelevant at induction volume.
+
+---
+
+## D17 — Request bodies are module-scope Pydantic models (a latent API bug, fixed)
+
+**Decision.** All request-body models (`InduceBody`, `RunBody`,
+`StartRecordingBody`) live at module scope, not inside the router factory.
+
+**What happened.** They were originally defined *inside* `build_router`. FastAPI +
+pydantic v2 cannot build a schema for a function-local model (its qualname carries
+`<locals>`), so it silently demoted each body parameter to a *query* parameter —
+making every body-taking endpoint (`/induce`, `/runs`, and the new recording
+routes) return `422 "field required"`. No test caught it because the e2e drives the
+`Runner` directly and nothing had exercised those endpoints over HTTP yet — it
+would have surfaced only when the Day-3 frontend tried to call them.
+
+**Reasoning.** Found it by writing API-level tests through the real HTTP layer
+before building the UI on top. Added those tests so it can't regress. Lesson
+banked: test the transport boundary, not just the logic beneath it.
+
+---
+
+## D18 — Local recording endpoints (headful), hosted recording via injected script
+
+**Decision.** `POST /api/recordings/start` spawns the headful Playwright
+demonstration browser and `POST /api/recordings/{id}/stop` returns the saved
+trace — the local record→learn→run loop over HTTP. On a display-less host the
+start endpoint fails with a clear message pointing at the hosted path: the same
+`inject.js` served into the mock apps, POSTing the trace to `/api/traces`.
+
+**Alternatives considered.** Only the programmatic recorder (no HTTP surface) —
+but then the UI can't start a recording. A WebSocket channel for live events —
+unnecessary; the trace is delivered whole on stop.
+
+**Reasoning / tradeoff.** Two honest paths for two environments, sharing one
+capture script and one trace format. Tradeoff: headful recording needs a display,
+so it's a local-only convenience; the endpoint says so rather than pretending.
+
+**Deliberately cut.** Live event streaming during recording; multi-user recording
+sessions.

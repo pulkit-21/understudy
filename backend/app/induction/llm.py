@@ -1,23 +1,27 @@
 """LLM enrichment of a heuristically-induced workflow.
 
-The heuristic layer already produced a structurally-valid spec. The LLM's job
-is judgment, not structure:
+The heuristic layer already did the load-bearing work deterministically:
+structure, parameterized navigation, and provenance (extract steps). That means
+the workflow is already correct and runnable with no API key. The LLM's job here
+is deliberately narrow — LEGIBILITY, not correctness:
 
- 1. PROVENANCE  — for each parameterized fill, check whether the demonstrated
-    value appeared in the page_text of an earlier NAVIGATE snapshot. If so,
-    the value was READ from that page, not invented: replace the parameter
-    with an EXTRACT step (read the element on the source page) + a
-    {{extract.key}} reference. Result: a run needs only e.g. `invoice_id`,
-    and every other value is pulled live from the source system.
- 2. NAMING     — rewrite step intents and parameter descriptions so a finance
-    reviewer can audit the procedure ("Enter the invoice total into Amount",
-    not "Enter value into textbox 'Amount'").
- 3. SEGMENTING — group steps into named phases (ALLOY-style sub-tasks),
-    carried in the description.
+  * rewrite each step's `intent` into one sentence a finance reviewer would
+    write ("Read the vendor name off the invoice", not "Read Vendor from the
+    source page"),
+  * give the workflow a professional `name` and a `description` that lays out
+    the procedure's phases.
 
-Output contract: the model must return the SAME WorkflowSpec JSON shape; we
-validate with pydantic and run spec.validate_references(). On any failure we
-fall back to the heuristic spec — enrichment is strictly best-effort.
+It is NOT allowed to change what the workflow *does*. We enforce that as a hard
+invariant: the enriched spec must be structurally identical to the draft
+(same actions, targets, values, extract keys, risk levels, and — critically —
+approval gates); only human-readable text may differ. Any deviation, any
+malformed output, or a missing key → we discard the LLM result and ship the
+deterministic draft. The stochastic layer can make the workflow nicer to read;
+it can never make it wrong.
+
+(Fuzzy provenance — matching a typed value to a page value across formatting
+differences the exact-match heuristic misses — is a natural next extension of
+this layer; see decisions.md.)
 """
 from __future__ import annotations
 
@@ -27,27 +31,30 @@ import os
 from ..models.trace import Trace
 from ..models.workflow import WorkflowSpec
 
-MODEL = os.environ.get("UNDERSTUDY_MODEL", "claude-sonnet-4-6")
+MODEL = os.environ.get("UNDERSTUDY_MODEL", "claude-opus-4-8")
 
 SYSTEM = """\
-You improve a browser-workflow specification that was mechanically induced
-from a user demonstration. You will receive the demonstration trace (with
-page-text snapshots) and the draft spec. Return ONLY a JSON object with the
-same schema as the draft spec. Rules:
+You are improving the READABILITY of an already-correct browser-workflow spec
+that was mechanically induced from a user demonstration. You receive the
+demonstration trace (with page snapshots) and the draft spec. Return ONLY a
+JSON object with the exact same schema as the draft spec.
 
-1. Keep every step's `target` object EXACTLY as given — never invent selectors.
-2. Rewrite each `intent` as one clear sentence a finance reviewer would write.
-3. Provenance: if a parameter's example value appears verbatim in an earlier
-   page's page_text, the user READ it there. Insert an `extract` step at the
-   right position (action="extract", target = the element that showed the
-   value if identifiable from data-testids in the trace, extract_key =
-   snake_case name) and change the fill's value to {{extract.<key>}}.
-   Remove the now-unneeded parameter. Keep genuinely external inputs
-   (e.g. which record to process) as parameters.
-4. Never change `requires_approval: true` to false. You may add `true` to a
-   step that commits state.
-5. Give the spec a concise professional `name` and a `description` that lists
-   the phases of the procedure.
+You MAY change, and ONLY these:
+  - the top-level `name`: a concise, professional title for the procedure.
+  - the top-level `description`: 1-3 sentences naming the phases of the
+    procedure (e.g. "Open the invoice, read its fields, then post a bill to the
+    ERP — pausing for approval before posting.").
+  - each step's `intent`: one clear sentence a finance reviewer would write,
+    describing what the step does and, where relevant, why. For `extract` steps,
+    say what is being read and from where. For the gated commit step, make the
+    irreversibility explicit.
+  - each parameter's `description`.
+
+You MUST NOT change anything else. Keep every step's `action`, `target`,
+`value`, `url`, `extract_key`, `risk`, and `requires_approval` EXACTLY as given,
+in the same order. Never add, remove, or reorder steps. Never invent selectors.
+Never change a `requires_approval: true` to false. Do not touch `id`, `version`,
+`source_trace_ids`, or the set of parameter keys.
 """
 
 
@@ -55,9 +62,33 @@ class InductionError(RuntimeError):
     pass
 
 
+def _structure(spec: WorkflowSpec) -> list:
+    """The invariant skeleton the LLM must preserve — everything except the
+    human-readable text (name/description/intent/param descriptions)."""
+    return [
+        (s.action, s.value, s.url, s.extract_key, s.risk, s.requires_approval,
+         None if s.target is None else
+         (s.target.testid, s.target.role, s.target.name, s.target.css))
+        for s in spec.steps
+    ]
+
+
+def validate_enrichment(draft: WorkflowSpec, enriched: WorkflowSpec) -> None:
+    """Enforce that enrichment only touched human-readable text. Raises
+    InductionError on any structural change, so the caller can fall back to the
+    deterministic draft. Pure (no network) — this is the safety boundary and is
+    unit-tested directly."""
+    if _structure(enriched) != _structure(draft):
+        raise InductionError("enrichment altered workflow structure — rejected")
+    if {p.key for p in enriched.parameters} != {p.key for p in draft.parameters}:
+        raise InductionError("enrichment changed the parameter set — rejected")
+    if enriched.validate_references():
+        raise InductionError("enriched spec inconsistent — rejected")
+
+
 async def enrich_with_llm(trace: Trace, draft: WorkflowSpec) -> WorkflowSpec:
-    """Best-effort enrichment. Raises InductionError only on hard failures;
-    callers should catch and fall back to the draft."""
+    """Best-effort legibility pass. Raises InductionError on any hard failure or
+    invariant violation; callers should catch and fall back to the draft."""
     try:
         from anthropic import AsyncAnthropic
     except ImportError as e:
@@ -73,7 +104,6 @@ async def enrich_with_llm(trace: Trace, draft: WorkflowSpec) -> WorkflowSpec:
     msg = await client.messages.create(
         model=MODEL,
         max_tokens=4000,
-        temperature=0,
         system=SYSTEM,
         messages=[{"role": "user", "content": json.dumps(payload)}],
     )
@@ -82,26 +112,23 @@ async def enrich_with_llm(trace: Trace, draft: WorkflowSpec) -> WorkflowSpec:
         text = text.strip("`")
         text = text.split("\n", 1)[1] if "\n" in text else text
 
-    enriched = WorkflowSpec.model_validate_json(text)
+    try:
+        enriched = WorkflowSpec.model_validate_json(text)
+    except Exception as e:  # noqa: BLE001 — malformed output -> fall back
+        raise InductionError(f"LLM returned invalid spec JSON: {e}") from e
 
-    # Hard safety invariants the LLM is not allowed to violate:
-    problems = enriched.validate_references()
-    if problems:
-        raise InductionError(f"enriched spec inconsistent: {problems}")
-    draft_gated = {s.target.testid for s in draft.steps
-                   if s.requires_approval and s.target}
-    kept_gated = {s.target.testid for s in enriched.steps
-                  if s.requires_approval and s.target}
-    if not draft_gated <= kept_gated:
-        raise InductionError("enrichment removed an approval gate — rejected")
+    # Hard invariants. The LLM may only touch human-readable text.
+    validate_enrichment(draft, enriched)
 
+    # Carry forward identity the LLM isn't allowed to set.
     enriched.id = draft.id
+    enriched.version = draft.version
     enriched.source_trace_ids = draft.source_trace_ids
     return enriched
 
 
 async def induce(trace: Trace, name: str | None = None) -> WorkflowSpec:
-    """Full pipeline: heuristic baseline, then best-effort LLM enrichment."""
+    """Full pipeline: deterministic draft, then best-effort LLM legibility pass."""
     from .heuristic import induce_heuristic
 
     draft = induce_heuristic(trace, name=name)

@@ -19,8 +19,27 @@ from ..induction.heuristic import induce_heuristic
 from ..induction.llm import InductionError, enrich_with_llm
 from ..models.trace import Trace
 from ..models.workflow import WorkflowSpec
-from ..recorder.session import TraceStore
+from ..recorder.session import RecordingSession, TraceStore
 from ..executor.manager import RunManager
+
+
+# Request bodies MUST be module-scope: FastAPI/pydantic v2 cannot build a schema
+# for a Pydantic model defined inside a function (its qualname has <locals>), and
+# silently degrades such a parameter to a query param — which breaks every
+# body-taking endpoint. Keep these here.
+
+class InduceBody(BaseModel):
+    name: str | None = None
+    use_llm: bool = True
+
+
+class RunBody(BaseModel):
+    params: dict[str, str] = {}
+
+
+class StartRecordingBody(BaseModel):
+    name: str = "Untitled demonstration"
+    start_url: str | None = None
 
 
 class WorkflowStore:
@@ -61,6 +80,50 @@ def build_router(traces: TraceStore, workflows: WorkflowStore,
         traces.save(trace)
         return {"id": trace.id, "events": len(trace.events)}
 
+    # ---- recording (LOCAL use: spawns a headful demonstration browser) ------
+    # A real demonstration happens in a Chromium window the user drives. This
+    # path needs a display, so it's for running Understudy on your own machine;
+    # the hosted demo records via inject.js served into the mock apps (the same
+    # events land through POST /api/traces).
+
+    active_recordings: dict[str, RecordingSession] = {}
+
+    @r.post("/recordings/start")
+    async def start_recording(body: StartRecordingBody):
+        import os
+        base = os.environ.get("UNDERSTUDY_BASE_URL", "http://localhost:8000")
+        start_url = body.start_url or f"{base}/portal"
+        session = RecordingSession(name=body.name, start_url=start_url)
+        try:
+            await session.start()          # opens the headful window
+        except Exception as e:  # noqa: BLE001 — no display / no browser, etc.
+            raise HTTPException(
+                503,
+                "could not launch the demonstration browser "
+                f"({type(e).__name__}: {e}). Local recording needs a display; "
+                "on a headless host, record via the in-page recorder and POST "
+                "the trace to /api/traces.",
+            ) from e
+        active_recordings[session.trace.id] = session
+        return {"recording_id": session.trace.id,
+                "name": session.trace.name, "start_url": start_url}
+
+    @r.get("/recordings")
+    def list_recordings():
+        return [{"recording_id": rid, "name": s.trace.name,
+                 "events": len(s.trace.events)}
+                for rid, s in active_recordings.items()]
+
+    @r.post("/recordings/{recording_id}/stop")
+    async def stop_recording(recording_id: str):
+        session = active_recordings.pop(recording_id, None)
+        if session is None:
+            raise HTTPException(404, "no active recording with that id")
+        trace = await session.stop()       # closes the window, returns the trace
+        traces.save(trace)
+        return {"trace_id": trace.id, "name": trace.name,
+                "events": len(trace.events)}
+
     @r.get("/traces/{trace_id}")
     def get_trace(trace_id: str):
         t = traces.load(trace_id)
@@ -69,10 +132,6 @@ def build_router(traces: TraceStore, workflows: WorkflowStore,
         return t
 
     # ---- induction ----------------------------------------------------------
-
-    class InduceBody(BaseModel):
-        name: str | None = None
-        use_llm: bool = True
 
     @r.post("/traces/{trace_id}/induce")
     async def induce(trace_id: str, body: InduceBody):
@@ -120,9 +179,6 @@ def build_router(traces: TraceStore, workflows: WorkflowStore,
         return spec
 
     # ---- runs ---------------------------------------------------------------
-
-    class RunBody(BaseModel):
-        params: dict[str, str] = {}
 
     @r.post("/workflows/{wf_id}/runs")
     def start_run(wf_id: str, body: RunBody):

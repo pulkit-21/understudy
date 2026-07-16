@@ -96,6 +96,45 @@
     };
   }
 
+  // ---- readable fields: labelled, testid'd VALUES visible on the page -------
+  // These are the provenance source: induction matches a value the user later
+  // types against these to emit an `extract` step targeting the real testid,
+  // so replays re-read the value live instead of baking in a constant.
+  function readableFields() {
+    const out = [];
+    const seen = new Set();
+    for (const el of document.querySelectorAll("[data-testid]")) {
+      const tag = el.tagName.toLowerCase();
+      // we want displayed values, not the controls the user acts on
+      if (["input", "textarea", "select", "button", "a", "form"].includes(tag))
+        continue;
+      const value = (el.innerText || "").trim();
+      if (!value || value.length > 200) continue;
+      const testid = el.getAttribute("data-testid");
+      // label: aria, or a preceding <dt> (definition lists), or previous sibling
+      let label = el.getAttribute("aria-label") || "";
+      if (!label && tag === "dd") {
+        const dt = el.previousElementSibling;
+        if (dt && dt.tagName.toLowerCase() === "dt") label = dt.innerText.trim();
+      }
+      if (!label) {
+        const prev = el.previousElementSibling;
+        if (prev && ["th", "label", "dt", "span"].includes(
+              prev.tagName.toLowerCase()))
+          label = prev.innerText.trim();
+      }
+      const key = testid + "|" + value;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        testid, value, label: label || null,
+        role: role(el), name: label || accessibleName(el) || null,
+      });
+      if (out.length >= 60) break;
+    }
+    return out;
+  }
+
   function realTarget(e) {
     const path = e.composedPath ? e.composedPath() : [e.target];
     // prefer the nearest interactive ancestor on the composed path
@@ -152,6 +191,7 @@
   const snapshot = () => emit({
     type: "navigate",
     page_text: (document.body?.innerText || "").slice(0, 5000),
+    readable_fields: readableFields(),
     ...base(),
   });
   if (document.readyState === "complete") snapshot();

@@ -12,9 +12,31 @@ invoice portal → ERP posting with an approval gate — is chosen to mirror
 Zamp's own use cases. Evaluation criteria: problem framing, product thinking,
 UX, code quality, meaningful tests, docs, setup ease, velocity, depth.
 
-## Current state (Day 1 complete — do not regress these)
+## Current state (Days 1–2 complete — do not regress these)
 
-DONE and tested (16 tests green, all core paths):
+### Day 2 additions (31 tests green; deterministic invoice_id-only)
+- **Deterministic provenance.** The heuristic inducer now (a) rewrites a click
+  that opens a run-varying URL (`open-INV-1001`) into a parameterized navigate
+  (`/portal/invoice/{{invoice_id}}`), and (b) turns values read off a page and
+  typed later into `extract` steps targeting the page's REAL testids. A run
+  needs ONLY `invoice_id`; vendor/date/amount/GL are read live. No key, works in
+  CI. (decisions.md D13.)
+- **`readable_fields`** on navigate events (trace model + inject.js + fixture):
+  structured provenance source, so extract targets are never invented. Verified
+  real inject.js against the live mock app. (D14.)
+- **LLM narrowed to legibility.** enrich_with_llm may change only name/
+  description/intent; `validate_enrichment` (pure, unit-tested) rejects any
+  structural change and falls back to the deterministic draft. Model default is
+  now `claude-opus-4-8`. (D15, D16.)
+- **API body bug fixed.** Request models were function-local → FastAPI demoted
+  bodies to query params → every body endpoint 422'd. Hoisted to module scope;
+  added HTTP-layer tests. (D17.)
+- **Recording endpoints.** POST /api/recordings/start (headful, local) + /stop
+  → saved trace; hosted path still via inject.js → /api/traces. (D18.)
+- eval + e2e now run invoice_id-only (prove live extraction); eval also checks
+  the extracted vendor. Still 8/8.
+
+### Day 1 (tested, all core paths):
 - Deterministic mock apps: Vendra portal (/portal) + LedgerOne ERP (/erp),
   stable data-testids, seeded data, /erp/_reset hook. Contract-tested.
 - Trace model (semantic events) + inject.js recorder script (accessible-name
@@ -56,17 +78,11 @@ DONE and tested (16 tests green, all core paths):
 
 ## Remaining plan
 
-### Day 2 — LLM induction quality + recording UX
-1. Wire recording start/stop endpoints for LOCAL use (spawn RecordingSession
-   headful; POST /api/recordings/start {name, start_url}, /stop → trace id).
-2. Test enrich_with_llm against the seeded trace with a real key; iterate the
-   prompt until it reliably produces: extract steps on the invoice detail
-   page (targets exist: inv-number/inv-vendor/inv-date/inv-amount/inv-gl),
-   parameterized navigate/click ("open invoice {{invoice_id}}" — rewrite the
-   open-INV-1001 click into navigate to /portal/invoice/{{invoice_id}}), and
-   a single `invoice_id` parameter. End state: a run needs ONLY invoice_id;
-   all other values are extracted live (the provenance wow).
-3. Add induction snapshot tests: assert structure/keys, not prose (temp 0).
+### Day 2 — DONE (see decisions.md D13–D18)
+Provenance made deterministic (invoice_id-only, in CI), readable_fields capture,
+LLM narrowed to legibility with a structural invariant, model → opus-4-8, latent
+API body bug fixed, recording endpoints wired, snapshot/invariant/API tests
+added. 31 tests green; eval 8/8 with live extraction.
 
 ### Day 3 — React control panel (frontend/)
 Vite + React. Pages: Traces (list, induce button), Workflow detail (editable
