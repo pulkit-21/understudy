@@ -1,0 +1,24 @@
+# One-click Render blueprint. Docker web service; Understudy serves the API,
+# the built React panel, and the mock apps from a single container.
+#
+#   1. Push this repo to GitHub.
+#   2. Render → New → Blueprint → point at the repo.
+#   3. (Optional) set ANTHROPIC_API_KEY to enable the LLM legibility pass.
+#
+# The demo seeds itself on boot and needs no API key to run. The default SQLite
+# DB lives on the container's ephemeral disk (resets on redeploy — fine for a
+# demo). For durable storage, add a Render Disk mounted at /srv/data, or set
+# DATABASE_URL to a managed Postgres.
+services:
+  - type: web
+    name: understudy
+    runtime: docker
+    plan: starter                 # needs ~1GB RAM for headless Chromium
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false               # set in the dashboard; optional
+      - key: UNDERSTUDY_DATA
+        value: /srv/data

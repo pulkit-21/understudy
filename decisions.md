@@ -603,3 +603,37 @@ seeded demonstration instead — the real-world-failure discipline applied to UX
 **What I deliberately cut.** A charts/metrics dashboard (vanity for this
 surface), and editing/deleting traces (not part of the core loop). Kept the
 visual language identical to Day 3 so the app reads as one considered product.
+
+---
+
+## D25 — Deploy: one container, seed-on-boot, SQLite-ephemeral by default
+
+**Decision.** A multi-stage Dockerfile (node builds the SPA → the Playwright
+Python image serves API + SPA + mock apps from one process), `render.yaml`
+blueprint, `/healthz`, and **seed-on-boot** (the app's lifespan seeds the demo
+if the DB is empty, using the offline heuristic inducer so boot needs no API
+key or network). The container binds `UNDERSTUDY_BASE_URL` to its own port so
+the executor drives the same process that serves the mock apps — no external
+round-trip, and it works regardless of the public URL.
+
+**Alternatives considered.**
+- *Separate frontend + backend services.* More moving parts and CORS; the
+  same-origin single container is simpler to run and to reason about.
+- *Postgres + a Render disk by default.* Durable, but adds provisioning to a
+  demo. SQLite on the container's ephemeral disk resets on redeploy — which for
+  this demo is a feature (clean slate), and `DATABASE_URL`/a mounted disk are
+  documented one-line upgrades when durability matters.
+- *Seed at image-build time* (the old Dockerfile did `RUN seed_demo.py`). That
+  bakes data into the image and would need the API key at build; seed-on-boot is
+  cleaner, idempotent, and key-free.
+
+**Reasoning / tradeoff.** The rubric requires a testable deployed URL and a
+one-shot setup. Playwright's official image removes the usual "missing shared
+libs" headless-Chromium failure on PaaS. Verified locally by booting against a
+fresh empty data dir: the lifespan seeded the workflow + trace and served the
+SPA. The Docker *image build* itself is left for the deploy host (the daemon
+wasn't available in the dev sandbox); the Dockerfile is standard multi-stage.
+
+**What I deliberately cut.** A CDN for static assets (FastAPI StaticFiles is
+fine at this scale) and horizontal scaling (one Chromium per run is a documented
+single-node boundary, not a demo concern).

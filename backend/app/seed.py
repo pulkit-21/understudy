@@ -79,3 +79,22 @@ def build_demo_trace(base: str = DEFAULT_BASE) -> Trace:
 
     return Trace(name="Post vendor invoice to LedgerOne", events=ev,
                  start_url=f"{base}/portal")
+
+
+def seed_if_empty(traces, workflows, base: str = DEFAULT_BASE) -> bool:
+    """Idempotent boot-time seed: if there are no workflows yet, install the
+    demonstration trace and a deterministic induced workflow so a fresh deploy
+    is immediately demoable. Uses the offline heuristic inducer (no network /
+    API key needed at boot); the LLM legibility pass is available on demand via
+    the induce endpoint. Returns True if it seeded."""
+    from .induction.heuristic import induce_heuristic
+
+    if workflows.list():
+        return False
+    trace = build_demo_trace(base=base)
+    trace.id = "demo-seed-001"
+    traces.save(trace)
+    spec = induce_heuristic(trace)
+    spec.id = "wf-demo-invoice"
+    workflows.save(spec)
+    return True

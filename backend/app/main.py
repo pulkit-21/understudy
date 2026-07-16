@@ -8,6 +8,7 @@ App layout:
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -19,6 +20,7 @@ from .api.routes import build_router
 from .db import RunRepo, SessionLocal, TraceRepo, WorkflowRepo, run_migrations
 from .executor.manager import RunManager
 from .mockapps.routes import router as mockapps_router
+from .seed import seed_if_empty
 
 DATA_DIR = Path(os.environ.get("UNDERSTUDY_DATA", "./data"))
 BASE_URL = os.environ.get("UNDERSTUDY_BASE_URL", "http://localhost:8000")
@@ -27,16 +29,24 @@ FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 # Provision the schema before anything reads/writes (idempotent).
 run_migrations()
 
-app = FastAPI(title="Understudy", version="0.1.0")
-app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 traces = TraceRepo(SessionLocal)
 workflows = WorkflowRepo(SessionLocal)
 runs = RunManager(base_url=BASE_URL, run_repo=RunRepo(SessionLocal),
                   headless=os.environ.get("UNDERSTUDY_HEADFUL") != "1")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # A fresh deploy seeds itself so it's demoable on first load.
+    seed_if_empty(traces, workflows, base=BASE_URL)
+    yield
+
+
+app = FastAPI(title="Understudy", version="0.1.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(mockapps_router)
 app.include_router(build_router(traces, workflows, runs))
