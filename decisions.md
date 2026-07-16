@@ -581,3 +581,25 @@ audited) holding through every failure. Proving it beats asserting it.
 **What I deliberately cut.** Chaos on the network layer (latency/500s injected
 mid-run) and a fuzzing pass over malformed traces — listed as future work; the
 five modes above are the ones a finance operator hits first.
+
+---
+
+## D24 — UI breadth: runs history, trace detail, recording, first-run
+
+**Decision.** Add three views + polish on top of the Day-3 panel: a **Runs
+history** page (`/runs`, from the new persistence), a **trace detail** page that
+renders a recorded demonstration's semantic events (the raw material induction
+learns from — visibly roles/labels/test-ids, not pixels), an in-UI **record
+start/stop** control, and a **first-run** intro banner + empty states.
+
+**Reasoning.** These aren't breadth for its own sake — each surfaces something
+the backend now does that was previously invisible: history proves runs persist;
+the trace view makes the "semantic, not pixel" claim legible to a reviewer; the
+record button closes the record→learn→run loop inside the product. The recording
+control degrades honestly: on a headless host (the hosted demo) the demonstration
+browser can't launch, so it explains that recording is local and points to the
+seeded demonstration instead — the real-world-failure discipline applied to UX.
+
+**What I deliberately cut.** A charts/metrics dashboard (vanity for this
+surface), and editing/deleting traces (not part of the core loop). Kept the
+visual language identical to Day 3 so the app reads as one considered product.

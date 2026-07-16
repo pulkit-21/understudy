@@ -49,6 +49,32 @@ export interface TraceSummary {
   started_at: string;
 }
 
+export interface SemanticEvent {
+  type: string;
+  url: string;
+  ts_ms: number;
+  target?: TargetInfo | null;
+  value?: string | null;
+  page_title?: string | null;
+}
+
+export interface Trace {
+  id: string;
+  name: string;
+  started_at: string;
+  start_url?: string | null;
+  events: SemanticEvent[];
+}
+
+export interface RunSummary {
+  id: string;
+  workflow_id: string;
+  status: RunStatus;
+  created_at: string;
+  params: Record<string, string>;
+  steps: number;
+}
+
 export type RunStatus =
   | "running" | "awaiting_approval" | "completed" | "rejected" | "failed";
 
@@ -101,6 +127,20 @@ async function req<T>(url: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   listTraces: () => req<TraceSummary[]>("/api/traces"),
+  getTrace: (id: string) => req<Trace>(`/api/traces/${id}`),
+
+  startRecording: (name: string, start_url?: string) =>
+    req<{ recording_id: string; name: string; start_url: string }>(
+      "/api/recordings/start",
+      { method: "POST", body: JSON.stringify({ name, start_url }) },
+    ),
+  stopRecording: (id: string) =>
+    req<{ trace_id: string; name: string; events: number }>(
+      `/api/recordings/${id}/stop`,
+      { method: "POST" },
+    ),
+
+  listRuns: () => req<RunSummary[]>("/api/runs"),
 
   induce: (traceId: string, use_llm = true) =>
     req<{ workflow: WorkflowSpec; induced_by: string; problems: string[] }>(

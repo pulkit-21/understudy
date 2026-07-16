@@ -8,6 +8,9 @@ export function TracesPage() {
   const [traces, setTraces] = useState<TraceSummary[] | null>(null);
   const [inducing, setInducing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [recording, setRecording] = useState<{ id: string; name: string } | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function load() {
     try {
@@ -32,15 +35,75 @@ export function TracesPage() {
     }
   }
 
+  async function startRecording() {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const r = await api.startRecording("Demonstration");
+      setRecording({ id: r.recording_id, name: r.name });
+      setNotice(
+        "A browser window opened — perform the task there, then click Stop.",
+      );
+    } catch (e) {
+      // On a headless server the demonstration browser can't launch (503).
+      setNotice(
+        e instanceof ApiError && e.status === 503
+          ? "Live recording needs a display, so it runs locally. On this hosted demo, use the seeded demonstration below (or POST a trace to /api/traces)."
+          : (e instanceof ApiError ? String(e.detail) : String(e)),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function stopRecording() {
+    if (!recording) return;
+    setBusy(true);
+    try {
+      await api.stopRecording(recording.id);
+      setRecording(null);
+      setNotice("Recording saved. Induce a workflow from it below.");
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? String(e.detail) : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const firstRun = workflows?.length === 0 && (traces?.length ?? 0) > 0;
+
   return (
     <div className="container">
-      <h1 className="page-title">Workflows</h1>
+      <div className="toolbar">
+        <div className="grow">
+          <h1 className="page-title" style={{ margin: 0 }}>Workflows</h1>
+        </div>
+        {recording ? (
+          <button className="btn danger" disabled={busy} onClick={stopRecording}>
+            ⏺ Stop recording
+          </button>
+        ) : (
+          <button className="btn" disabled={busy} onClick={startRecording}>
+            ⏺ Record a demonstration
+          </button>
+        )}
+      </div>
       <p className="page-sub">
         A workflow is a procedure Understudy learned by watching one
         demonstration. Open one to review and edit it, or run it on new data.
       </p>
 
+      {notice && <div className="banner info">{notice}</div>}
       {error && <div className="banner error">{error}</div>}
+      {firstRun && (
+        <div className="banner success">
+          👋 Start here: pick the recorded demonstration below and click
+          <strong> Induce workflow</strong> — Understudy will learn the procedure,
+          then you can run it on any invoice.
+        </div>
+      )}
 
       {workflows === null ? (
         <div className="spinner">Loading…</div>
@@ -79,16 +142,20 @@ export function TracesPage() {
         <div className="spinner">Loading…</div>
       ) : traces.length === 0 ? (
         <div className="card empty">
-          No demonstrations recorded yet. Record one locally with{" "}
-          <code>POST /api/recordings/start</code>, or seed the demo with{" "}
-          <code>python scripts/seed_demo.py</code>.
+          No demonstrations recorded yet. Record one with the button above, or
+          seed the demo with <code>python scripts/seed_demo.py</code>.
         </div>
       ) : (
         <div className="card">
           {traces.map((t) => (
             <div className="row" key={t.id}>
               <div className="grow">
-                <div className="title">{t.name}</div>
+                <div className="title">
+                  <a href={`/traces/${t.id}`}
+                     onClick={(e) => { e.preventDefault(); nav(`/traces/${t.id}`); }}>
+                    {t.name}
+                  </a>
+                </div>
                 <div className="meta">{t.events} events · {t.id}</div>
               </div>
               <button
