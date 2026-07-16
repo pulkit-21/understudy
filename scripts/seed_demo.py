@@ -13,13 +13,17 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 sys.path.insert(0, str(ROOT))
 
-import asyncio  # noqa: E402
+import asyncio
 
-from app.db import (  # noqa: E402
-    SessionLocal, TraceRepo, WorkflowRepo, resolve_url, run_migrations,
+from app.db import (
+    SessionLocal,
+    TraceRepo,
+    WorkflowRepo,
+    resolve_url,
+    run_migrations,
 )
-from app.induction.llm import induce  # noqa: E402
-from app.seed import build_demo_trace  # noqa: E402
+from app.induction.llm import induce
+from app.seed import build_demo_trace
 
 BASE_URL = os.environ.get("UNDERSTUDY_BASE_URL", "http://localhost:8000")
 

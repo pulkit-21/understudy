@@ -6,9 +6,8 @@ coordinates or raw DOM mutations. This is the input to workflow induction.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -30,11 +29,11 @@ class TargetInfo(BaseModel):
     cosmetic DOM changes (self-healing fallback chain).
     """
 
-    role: Optional[str] = None          # ARIA role, e.g. "button", "textbox"
-    name: Optional[str] = None          # accessible name / label text
-    testid: Optional[str] = None        # data-testid, most stable when present
-    css: Optional[str] = None           # generated CSS selector, last resort
-    tag: Optional[str] = None           # html tag, for debugging/heuristics
+    role: str | None = None          # ARIA role, e.g. "button", "textbox"
+    name: str | None = None          # accessible name / label text
+    testid: str | None = None        # data-testid, most stable when present
+    css: str | None = None           # generated CSS selector, last resort
+    tag: str | None = None           # html tag, for debugging/heuristics
 
     def describe(self) -> str:
         if self.name and self.role:
@@ -48,21 +47,21 @@ class ReadableField(BaseModel):
     value that was READ here and TYPED later into an `extract` step that targets
     this element's REAL testid — provenance without inventing selectors."""
 
-    testid: Optional[str] = None
-    label: Optional[str] = None         # dt/label/aria text next to the value
+    testid: str | None = None
+    label: str | None = None         # dt/label/aria text next to the value
     value: str                          # the visible text that was read
-    role: Optional[str] = None
-    name: Optional[str] = None
+    role: str | None = None
+    name: str | None = None
 
 
 class SemanticEvent(BaseModel):
     type: EventType
     url: str
     ts_ms: int = Field(description="epoch millis at capture time")
-    target: Optional[TargetInfo] = None
-    value: Optional[str] = None         # fill/select value
-    page_title: Optional[str] = None
-    page_text: Optional[str] = None     # trimmed innerText snapshot on NAVIGATE
+    target: TargetInfo | None = None
+    value: str | None = None         # fill/select value
+    page_title: str | None = None
+    page_text: str | None = None     # trimmed innerText snapshot on NAVIGATE
                                         # -> human-readable provenance context
     readable_fields: list[ReadableField] = Field(default_factory=list)
                                         # structured provenance: labelled,
@@ -74,12 +73,12 @@ class Trace(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex[:12])
     name: str = "untitled demonstration"
     started_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
-    start_url: Optional[str] = None
+    start_url: str | None = None
     events: list[SemanticEvent] = Field(default_factory=list)
 
-    def condensed(self, max_page_text: int = 800) -> "Trace":
+    def condensed(self, max_page_text: int = 800) -> Trace:
         """Copy with page_text trimmed — used when building LLM prompts."""
         t = self.model_copy(deep=True)
         for e in t.events:

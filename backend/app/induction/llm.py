@@ -114,7 +114,7 @@ async def enrich_with_llm(trace: Trace, draft: WorkflowSpec) -> WorkflowSpec:
 
     try:
         enriched = WorkflowSpec.model_validate_json(text)
-    except Exception as e:  # noqa: BLE001 — malformed output -> fall back
+    except Exception as e:
         raise InductionError(f"LLM returned invalid spec JSON: {e}") from e
 
     # Hard invariants. The LLM may only touch human-readable text.

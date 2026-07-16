@@ -6,17 +6,17 @@ are the trace, the spec, and the run's event log (persisted on completion).
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from ..models.workflow import WorkflowSpec
-from .runner import Run, Runner, PlaywrightSink
+from .runner import PlaywrightSink, Run, Runner
 
 if TYPE_CHECKING:
     from ..db.repositories import RunRepo
 
 
 class RunManager:
-    def __init__(self, base_url: str, run_repo: "RunRepo",
+    def __init__(self, base_url: str, run_repo: RunRepo,
                  headless: bool = True):
         self.base_url = base_url
         self.repo = run_repo
@@ -72,7 +72,7 @@ class RunManager:
         runner.reject()
         return True
 
-    def get(self, run_id: str) -> Optional[Run]:
+    def get(self, run_id: str) -> Run | None:
         # live run (in memory) wins; else the persisted terminal state
         return self.runs.get(run_id) or self.repo.get(run_id)
 

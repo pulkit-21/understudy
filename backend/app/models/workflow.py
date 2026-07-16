@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import re
 from enum import Enum
-from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -51,7 +50,7 @@ class RiskLevel(str, Enum):
 class WorkflowParameter(BaseModel):
     key: str
     description: str = ""
-    example: Optional[str] = None
+    example: str | None = None
     required: bool = True
 
 
@@ -59,10 +58,10 @@ class WorkflowStep(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex[:8])
     intent: str = Field(description="One human-readable sentence: what & why")
     action: ActionType
-    target: Optional[TargetInfo] = None   # None for NAVIGATE
-    value: Optional[str] = None           # literal, {{param}}, or {{extract.k}}
-    url: Optional[str] = None             # NAVIGATE only; may contain {{param}}
-    extract_key: Optional[str] = None     # EXTRACT only: name of the output
+    target: TargetInfo | None = None   # None for NAVIGATE
+    value: str | None = None           # literal, {{param}}, or {{extract.k}}
+    url: str | None = None             # NAVIGATE only; may contain {{param}}
+    extract_key: str | None = None     # EXTRACT only: name of the output
     risk: RiskLevel = RiskLevel.READ
     requires_approval: bool = False
 

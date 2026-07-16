@@ -10,7 +10,11 @@ modules — importing test code pulls in test-only env setup.)
 from __future__ import annotations
 
 from .models.trace import (
-    EventType, ReadableField, SemanticEvent, TargetInfo, Trace,
+    EventType,
+    ReadableField,
+    SemanticEvent,
+    TargetInfo,
+    Trace,
 )
 
 DEFAULT_BASE = "http://localhost:8000"

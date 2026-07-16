@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from alembic import command
 from alembic.config import Config
+
+from alembic import command
 
 from .engine import resolve_url
 

@@ -18,16 +18,16 @@ cheap, auditable — and auditability is the point in finance.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+import contextlib
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional, Protocol
+from typing import Protocol
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 from ..models.trace import TargetInfo
 from ..models.workflow import ActionType, WorkflowSpec, WorkflowStep, render_template
-
 
 # ---- run state & events ------------------------------------------------------
 
@@ -43,11 +43,11 @@ class RunEvent(BaseModel):
     """One audit-log entry. actor is 'agent' or 'human' — every state change
     is attributable, which is the audit-trail property finance teams need."""
 
-    ts: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    ts: datetime = Field(default_factory=lambda: datetime.now(UTC))
     actor: str = "agent"
     kind: str  # step_started | step_done | awaiting_approval | approved |
                # rejected | extracted | healed | run_done | run_failed
-    step_id: Optional[str] = None
+    step_id: str | None = None
     detail: str = ""
 
 
@@ -70,7 +70,7 @@ class ActionSink(Protocol):
     async def select(self, target: TargetInfo, value: str) -> str: ...
     async def extract(self, target: TargetInfo) -> tuple[str, str]: ...
     async def assert_text(self, target: TargetInfo, expected: str) -> str: ...
-    async def screenshot(self) -> Optional[bytes]: ...
+    async def screenshot(self) -> bytes | None: ...
 
 
 # ---- runner -------------------------------------------------------------------
@@ -81,7 +81,7 @@ class ApprovalRejected(Exception):
 
 class Runner:
     def __init__(self, spec: WorkflowSpec, run: Run, sink: ActionSink,
-                 event_queue: Optional[asyncio.Queue] = None):
+                 event_queue: asyncio.Queue | None = None):
         self.spec = spec
         self.run = run
         self.sink = sink
@@ -112,7 +112,7 @@ class Runner:
             self._log("run_done", detail="Workflow completed.")
         except ApprovalRejected:
             self.run.status = RunStatus.REJECTED
-        except Exception as e:  # noqa: BLE001 — a run must always settle
+        except Exception as e:
             self.run.status = RunStatus.FAILED
             self._log("run_failed", detail=f"{type(e).__name__}: {e}")
         return self.run
@@ -160,14 +160,12 @@ class Runner:
         self._log("step_done", step_id=step.id, detail=step.intent)
 
     def _log(self, kind: str, actor: str = "agent",
-             step_id: Optional[str] = None, detail: str = "") -> None:
+             step_id: str | None = None, detail: str = "") -> None:
         evt = RunEvent(kind=kind, actor=actor, step_id=step_id, detail=detail)
         self.run.events.append(evt)
         if self._queue is not None:
-            try:
+            with contextlib.suppress(asyncio.QueueFull):
                 self._queue.put_nowait(evt)
-            except asyncio.QueueFull:
-                pass
 
 
 # ---- the real sink -------------------------------------------------------------
@@ -225,7 +223,7 @@ class PlaywrightSink:
                 f"validation failed: expected {expected!r} in {actual!r}")
         return how
 
-    async def screenshot(self) -> Optional[bytes]:
+    async def screenshot(self) -> bytes | None:
         try:
             return await self.page.screenshot(type="jpeg", quality=60)
         except Exception:

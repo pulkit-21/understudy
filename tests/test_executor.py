@@ -13,7 +13,11 @@ import pytest
 from app.executor.runner import Run, Runner, RunStatus
 from app.models.trace import TargetInfo
 from app.models.workflow import (
-    ActionType, RiskLevel, WorkflowParameter, WorkflowSpec, WorkflowStep,
+    ActionType,
+    RiskLevel,
+    WorkflowParameter,
+    WorkflowSpec,
+    WorkflowStep,
 )
 
 

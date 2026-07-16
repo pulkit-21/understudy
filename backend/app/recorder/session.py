@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 
 from ..models.trace import SemanticEvent, Trace
 
@@ -29,8 +30,10 @@ class RecordingSession:
         self.trace = Trace(name=name, start_url=start_url)
         self._start_url = start_url
         self._headless = headless
-        self._pw = None
-        self._browser = None
+        # Playwright objects are created lazily in start(); typed Any because the
+        # import is local (keeps playwright out of the module import path).
+        self._pw: Any = None
+        self._browser: Any = None
         self._stopped = asyncio.Event()
 
     async def start(self) -> None:

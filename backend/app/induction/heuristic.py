@@ -28,7 +28,7 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse
 
-from ..models.trace import EventType, ReadableField, SemanticEvent, TargetInfo, Trace
+from ..models.trace import EventType, ReadableField, TargetInfo, Trace
 from ..models.workflow import (
     ActionType,
     RiskLevel,
@@ -161,6 +161,7 @@ def induce_heuristic(trace: Trace, name: str | None = None) -> WorkflowSpec:
                 else (None, None)
             )
             if token and key:
+                assert nxt is not None  # token is set only when nxt is a navigate
                 params.setdefault(key, token)
                 value_source[token] = ("param", key)
                 noun = urlparse(nxt.url).path.strip("/").split("/")[-2] or "page"

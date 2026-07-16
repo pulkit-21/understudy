@@ -25,8 +25,8 @@ os.environ.setdefault("DATABASE_URL", f"sqlite:///{_TMP}/test.db")
 import pytest
 
 from app.db import Base, engine
-from app.seed import build_demo_trace
 from app.models.trace import Trace
+from app.seed import build_demo_trace
 
 BASE = "http://localhost:8000"
 

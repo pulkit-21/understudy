@@ -67,7 +67,6 @@ def test_open_click_becomes_parameterized_navigate(demo_trace):
 
 def test_no_demo_literals_leak_into_the_spec(demo_trace):
     spec = induce_heuristic(demo_trace)
-    blob = spec.model_dump_json()
     # example values live in parameters/descriptions; the STEPS must not carry
     # the demonstration's data as constants.
     for step in spec.steps:

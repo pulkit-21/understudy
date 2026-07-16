@@ -15,13 +15,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..db.repositories import TraceRepo, WorkflowRepo
+from ..executor.manager import RunManager
 from ..induction.heuristic import induce_heuristic
 from ..induction.llm import InductionError, enrich_with_llm
 from ..models.trace import Trace
 from ..models.workflow import WorkflowSpec
 from ..recorder.session import RecordingSession
-from ..executor.manager import RunManager
-
 
 # Request bodies MUST be module-scope: FastAPI/pydantic v2 cannot build a schema
 # for a Pydantic model defined inside a function (its qualname has <locals>), and
@@ -76,7 +75,7 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
         session = RecordingSession(name=body.name, start_url=start_url)
         try:
             await session.start()          # opens the headful window
-        except Exception as e:  # noqa: BLE001 — no display / no browser, etc.
+        except Exception as e:
             raise HTTPException(
                 503,
                 "could not launch the demonstration browser "
@@ -218,7 +217,7 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
                     return
                 try:
                     evt = await asyncio.wait_for(queue.get(), timeout=15)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield ": keepalive\n\n"
                     continue
                 if evt is None:

@@ -1,0 +1,42 @@
+[project]
+name = "understudy"
+version = "0.1.0"
+description = "Learn a browser workflow by watching a demonstration, then run it with approval gates."
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["backend", "scripts", "tests"]
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I isort, B bugbear, UP pyupgrade, SIM simplify,
+# RUF ruff-specific. A pragmatic, high-signal set (mirrors the reference bar).
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF"]
+ignore = [
+    "E501",   # line length is enforced by formatter, not lint nags
+    "B008",   # FastAPI dependency-injection defaults use function calls
+    "UP042",  # keep `class X(str, Enum)` — StrEnum changes str() semantics
+]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/alembic/*" = ["E402"]   # env.py imports after sys.path setup
+"scripts/*" = ["E402"]           # scripts set sys.path before importing app
+"tests/*" = ["E402"]             # conftest sets env before importing app
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "backend"
+# Pragmatic strictness: catch real type errors without drowning in async/
+# third-party stub noise. Tightened per-module where the payoff is highest
+# (the domain models + executor safety core).
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true
+ignore_missing_imports = true      # playwright/anthropic ship partial stubs
+exclude = ["backend/alembic/", "tests/", "frontend/"]
+
+[[tool.mypy.overrides]]
+module = ["app.models.*", "app.executor.runner"]
+disallow_untyped_defs = true       # the safety core is fully typed

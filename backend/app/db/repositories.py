@@ -8,8 +8,8 @@ of work at this scale.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Callable, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -23,7 +23,7 @@ SessionFactory = Callable[[], Session]
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class TraceRepo:
@@ -40,7 +40,7 @@ class TraceRepo:
             s.add(row)
             s.commit()
 
-    def load(self, trace_id: str) -> Optional[Trace]:
+    def load(self, trace_id: str) -> Trace | None:
         with self._sf() as s:
             row = s.get(TraceRow, trace_id)
             return Trace.model_validate(row.payload) if row else None
@@ -71,7 +71,7 @@ class WorkflowRepo:
             s.add(row)
             s.commit()
 
-    def load(self, wf_id: str) -> Optional[WorkflowSpec]:
+    def load(self, wf_id: str) -> WorkflowSpec | None:
         with self._sf() as s:
             row = s.get(WorkflowRow, wf_id)
             return WorkflowSpec.model_validate(row.payload) if row else None
@@ -102,7 +102,7 @@ class RunRepo:
             s.add(row)
             s.commit()
 
-    def get(self, run_id: str) -> Optional[Run]:
+    def get(self, run_id: str) -> Run | None:
         with self._sf() as s:
             row = s.get(RunRow, run_id)
             return Run.model_validate(row.payload) if row else None

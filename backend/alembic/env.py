@@ -5,21 +5,22 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # Make the app package importable when Alembic is run via the CLI.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.db.engine import resolve_url  # noqa: E402
-from app.db.models import Base  # noqa: E402
+import contextlib
+
+from app.db.engine import resolve_url
+from app.db.models import Base
 
 config = context.config
 if config.config_file_name is not None:
-    try:
+    with contextlib.suppress(Exception):
         fileConfig(config.config_file_name)
-    except Exception:  # noqa: BLE001 — logging config is optional
-        pass
 
 # Prefer an injected URL (app/db/migrate.py sets it), else fall back to resolve.
 if not config.get_main_option("sqlalchemy.url"):

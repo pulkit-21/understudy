@@ -20,12 +20,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import uvicorn
+from tests.conftest import BASE as FIXTURE_BASE
 
-from app.executor.runner import Run, Runner, RunStatus, PlaywrightSink
+from app.executor.runner import PlaywrightSink, Run, Runner, RunStatus
 from app.induction.heuristic import induce_heuristic
 from app.main import app
 from app.mockapps.seed import ERP, INVOICES
-from tests.conftest import BASE as FIXTURE_BASE
 
 PORT = 8778
 BASE = f"http://127.0.0.1:{PORT}"

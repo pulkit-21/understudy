@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    name: backend — ruff · mypy · pytest (with browser e2e)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Install Chromium (for the real-browser e2e test)
+        run: python -m playwright install --with-deps chromium
+      - name: Lint (ruff)
+        run: ruff check backend scripts tests
+      - name: Type-check (mypy)
+        run: mypy backend
+      - name: Test (pytest)
+        run: pytest -q
+
+  frontend:
+    name: frontend — typecheck · build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Type-check + build (tsc + vite)
+        run: npm run build
