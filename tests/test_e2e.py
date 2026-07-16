@@ -52,13 +52,11 @@ async def test_learned_workflow_generalizes_to_unseen_invoice(
     spec = induce_heuristic(demo_trace)
     assert spec.validate_references() == []
 
-    # 2. Run it on an invoice the demonstration never touched
-    params = {
-        "invoice_number": "INV-1005",
-        "invoice_date": "2026-06-15",
-        "amount": "18990.00",
-        "gl_code": "5010",
-    }
+    # 2. Run it on an invoice the demonstration never touched. We pass ONLY the
+    #    invoice id — vendor/date/amount/GL are read live off INV-1005's own
+    #    page by the learned `extract` steps. Feeding those values would prove
+    #    nothing; reading them is the whole point.
+    params = {"invoice_id": "INV-1005"}
     run = Run(workflow_id=spec.id, params=params)
 
     async with async_playwright() as pw:
@@ -83,9 +81,15 @@ async def test_learned_workflow_generalizes_to_unseen_invoice(
     assert result.status == RunStatus.COMPLETED
     assert len(ERP.posted) == 1
     bill = ERP.posted[0]
+    # Every field below the invoice id was READ LIVE off INV-1005's own page by
+    # the learned extract steps — none of it was passed in.
     assert bill.invoice_number == "INV-1005"
+    assert bill.vendor == "Osaka Components KK"
+    assert bill.invoice_date == "2026-06-15"
     assert bill.amount == "18990.00"
     assert bill.gl_code == "5010"
-    # the demo's own data must NOT have leaked into the run
-    assert bill.invoice_number != "INV-1001"
+    # the demo's own data (INV-1001) must NOT have leaked into the run
+    assert bill.vendor != "Northwind Logistics"
     assert bill.amount != "4820.00"
+    # extraction actually happened (audit trail records each read)
+    assert any(e.kind == "extracted" for e in result.events)

@@ -41,12 +41,10 @@ def start_server() -> uvicorn.Server:
 
 
 async def run_one(spec, invoice, pw) -> tuple[bool, str]:
-    params = {
-        "invoice_number": invoice.id,
-        "invoice_date": invoice.date,
-        "amount": invoice.amount,
-        "gl_code": invoice.gl_code,
-    }
+    # Only the invoice id is supplied; vendor/date/amount/GL are read live off
+    # this invoice's own page. So a PASS means the learned procedure correctly
+    # located, read, and posted each invoice's real data — not that we fed it.
+    params = {"invoice_id": invoice.id}
     before = len(ERP.posted)
     browser = await pw.chromium.launch(headless=True)
     try:
@@ -72,6 +70,7 @@ async def run_one(spec, invoice, pw) -> tuple[bool, str]:
     mismatches = [
         f"{field}: erp={got!r} portal={want!r}"
         for field, got, want in [
+            ("vendor", bill.vendor, invoice.vendor),
             ("invoice_number", bill.invoice_number, invoice.id),
             ("invoice_date", bill.invoice_date, invoice.date),
             ("amount", bill.amount, invoice.amount),

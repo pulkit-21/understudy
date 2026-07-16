@@ -42,6 +42,19 @@ class TargetInfo(BaseModel):
         return self.testid or self.css or self.tag or "unknown element"
 
 
+class ReadableField(BaseModel):
+    """A labelled value the recorder saw on a page (a data-testid'd element and
+    its text). Captured on NAVIGATE alongside page_text so induction can turn a
+    value that was READ here and TYPED later into an `extract` step that targets
+    this element's REAL testid — provenance without inventing selectors."""
+
+    testid: Optional[str] = None
+    label: Optional[str] = None         # dt/label/aria text next to the value
+    value: str                          # the visible text that was read
+    role: Optional[str] = None
+    name: Optional[str] = None
+
+
 class SemanticEvent(BaseModel):
     type: EventType
     url: str
@@ -50,9 +63,11 @@ class SemanticEvent(BaseModel):
     value: Optional[str] = None         # fill/select value
     page_title: Optional[str] = None
     page_text: Optional[str] = None     # trimmed innerText snapshot on NAVIGATE
-                                        # -> lets induction link filled values
-                                        #    back to where they were *read from*
-                                        #    (data provenance / extract steps)
+                                        # -> human-readable provenance context
+    readable_fields: list[ReadableField] = Field(default_factory=list)
+                                        # structured provenance: labelled,
+                                        # testid'd values seen on this page ->
+                                        # the source of `extract` step targets
 
 
 class Trace(BaseModel):
