@@ -181,7 +181,9 @@ def build_router(traces: TraceStore, workflows: WorkflowStore,
     # ---- runs ---------------------------------------------------------------
 
     @r.post("/workflows/{wf_id}/runs")
-    def start_run(wf_id: str, body: RunBody):
+    async def start_run(wf_id: str, body: RunBody):
+        # async so RunManager.start_run's asyncio.create_task has a running loop
+        # (a sync endpoint runs in a threadpool with no loop).
         spec = workflows.load(wf_id)
         if not spec:
             raise HTTPException(404)
@@ -200,13 +202,15 @@ def build_router(traces: TraceStore, workflows: WorkflowStore,
         return run
 
     @r.post("/runs/{run_id}/approve")
-    def approve(run_id: str):
+    async def approve(run_id: str):
+        # async so the asyncio.Event is set on the loop thread and reliably
+        # wakes the paused runner (a threadpool set() can miss the waiter).
         if not runs.approve(run_id):
             raise HTTPException(409, "run is not active")
         return {"ok": True}
 
     @r.post("/runs/{run_id}/reject")
-    def reject(run_id: str):
+    async def reject(run_id: str):
         if not runs.reject(run_id):
             raise HTTPException(409, "run is not active")
         return {"ok": True}

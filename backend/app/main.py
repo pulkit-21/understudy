@@ -10,9 +10,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from .api.routes import WorkflowStore, build_router
 from .executor.manager import RunManager
@@ -21,6 +22,7 @@ from .recorder.session import TraceStore
 
 DATA_DIR = Path(os.environ.get("UNDERSTUDY_DATA", "./data"))
 BASE_URL = os.environ.get("UNDERSTUDY_BASE_URL", "http://localhost:8000")
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 app = FastAPI(title="Understudy", version="0.1.0")
 app.add_middleware(
@@ -42,16 +44,41 @@ def healthz():
     return {"ok": True}
 
 
-@app.get("/", response_class=HTMLResponse)
-def index():
-    return """<!doctype html><meta charset=utf-8>
-    <title>Understudy</title>
-    <body style="font:15px/1.6 system-ui;max-width:640px;margin:60px auto;color:#1c2430">
-    <h1 style="font-size:22px">Understudy <span style="color:#67707d;font-weight:400">— dev index</span></h1>
-    <p>Learn a browser workflow by watching a demonstration, then run it
-    with approval gates. The React control panel replaces this page.</p>
-    <ul>
-      <li><a href="/portal">Vendra — mock invoice portal</a></li>
-      <li><a href="/erp">LedgerOne — mock ERP</a></li>
-      <li><a href="/docs">API docs (OpenAPI)</a></li>
-    </ul></body>"""
+# ---- serve the built React control panel same-origin (one service) ----------
+# In dev the Vite server proxies /api etc. to this backend; in production the
+# built assets are served here so there's one URL and no CORS. If the frontend
+# hasn't been built, fall back to a minimal dev launcher.
+_RESERVED = ("api/", "portal", "erp", "docs", "openapi.json", "healthz",
+             "assets/")
+
+if FRONTEND_DIST.is_dir():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"),
+              name="assets")
+    _INDEX = FRONTEND_DIST / "index.html"
+
+    @app.get("/", response_class=FileResponse)
+    def spa_root():
+        return FileResponse(_INDEX)
+
+    @app.get("/{full_path:path}", response_class=FileResponse)
+    def spa_fallback(full_path: str):
+        # Client-side routes (/workflows/:id, /runs/:id) resolve to the SPA;
+        # unknown API/mock paths stay 404 rather than returning HTML.
+        if full_path.startswith(_RESERVED):
+            raise HTTPException(404)
+        return FileResponse(_INDEX)
+else:
+    @app.get("/", response_class=HTMLResponse)
+    def dev_index():
+        return """<!doctype html><meta charset=utf-8>
+        <title>Understudy</title>
+        <body style="font:15px/1.6 system-ui;max-width:640px;margin:60px auto;color:#1c2430">
+        <h1 style="font-size:22px">Understudy <span style="color:#67707d;font-weight:400">— dev index</span></h1>
+        <p>The React control panel isn't built yet. Run
+        <code>cd frontend && npm install && npm run build</code>, or use the Vite
+        dev server (<code>npm run dev</code>). Meanwhile:</p>
+        <ul>
+          <li><a href="/portal">Vendra — mock invoice portal</a></li>
+          <li><a href="/erp">LedgerOne — mock ERP</a></li>
+          <li><a href="/docs">API docs (OpenAPI)</a></li>
+        </ul></body>"""

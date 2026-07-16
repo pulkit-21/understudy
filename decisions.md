@@ -422,3 +422,54 @@ so it's a local-only convenience; the endpoint says so rather than pretending.
 
 **Deliberately cut.** Live event streaming during recording; multi-user recording
 sessions.
+
+---
+
+## D19 — Run/approve endpoints are `async` (a second latent event-loop bug, fixed)
+
+**Decision.** `POST /workflows/{id}/runs`, `/runs/{id}/approve`, and `/reject`
+are `async def`.
+
+**What happened.** They were sync `def`, so FastAPI ran them in a threadpool.
+`RunManager.start_run` calls `asyncio.create_task`, which needs a running loop —
+from a threadpool thread there is none, so starting a run raised
+`RuntimeError: no running event loop` and nothing executed. The approve/reject
+path had a subtler version of the same disease: `asyncio.Event.set()` called from
+a threadpool thread doesn't reliably wake a waiter blocked on the loop, so even
+if a run had started, approval might never have resumed it.
+
+**Reasoning.** Like D17, this only surfaced when I drove the endpoints for real —
+here by running the full UI loop headless (Playwright against the built SPA)
+rather than trusting a green typecheck. Making the endpoints async puts them on
+the loop thread, so both `create_task` and `Event.set()` behave. Banked lesson:
+endpoints that touch asyncio primitives must be async, and "it compiles / renders"
+is not "it works" — drive the actual flow.
+
+---
+
+## D20 — React SPA, served same-origin by FastAPI; the spec is the UI
+
+**Decision.** A Vite + React + TypeScript control panel (`frontend/`), built to
+static assets and served by FastAPI (D12). Three views: a workflows/demonstrations
+list, an **editable workflow detail** page, and a **run** page with a live SSE
+audit log and the approval gate. Plain hand-written CSS, no UI framework.
+
+**Alternatives considered.**
+- *Server-rendered templates* (extend the Jinja mock-app stack). Faster to stand
+  up, but the run view needs live streaming and inline editing — that's a
+  client-state problem, and SSR would fight it.
+- *A component library* (MUI/Chakra/Tailwind). Saves styling time but adds bulk
+  and a generic look; the surface here is small enough that ~250 lines of CSS
+  gives a more considered, product-specific feel.
+
+**Reasoning / tradeoff.** The product thesis is "the learned artifact is legible
+and trustworthy," so the UI's job is to make the spec and the audit trail *read*
+well: every step shows its action, risk, real target testid, and whether each
+value is read-live (`↳ read: vendor`) or a run input (`input: invoice_id`); the
+commit step is visually gated with a toggle; the run log shows actor (agent vs
+human) + timestamp per line. TypeScript + a typed API client keep the front and
+back ends honest about the same shapes. Tradeoff: a build step and a second
+toolchain — paid down by same-origin serving so it's still one deploy.
+
+**Deliberately cut.** Auth, optimistic caching/react-query, a component library,
+dark mode. Not needed at this surface.
