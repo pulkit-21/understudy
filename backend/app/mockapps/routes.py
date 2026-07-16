@@ -55,8 +55,15 @@ def erp_list(request: Request, posted: str | None = None):
 
 
 @router.get("/erp/new", response_class=HTMLResponse)
-def erp_new_form(request: Request):
-    return templates.TemplateResponse(request, "erp_new.html", ERP_BRAND)
+def erp_new_form(request: Request, resilience: str | None = None):
+    # ?resilience=drop-testids renders the same form WITHOUT data-testid hooks —
+    # simulating an ERP redesign that broke our selectors. The executor must then
+    # self-heal via accessible role+name. Used by the resilience test and a live
+    # UI demo; the labels stay intact so role+name resolution still works.
+    return templates.TemplateResponse(
+        request, "erp_new.html",
+        {**ERP_BRAND, "drop_testids": resilience == "drop-testids"},
+    )
 
 
 @router.post("/erp/new")

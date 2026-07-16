@@ -20,12 +20,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import uvicorn
-from tests.conftest import BASE as FIXTURE_BASE
 
 from app.executor.runner import PlaywrightSink, Run, Runner, RunStatus
 from app.induction.heuristic import induce_heuristic
 from app.main import app
 from app.mockapps.seed import ERP, INVOICES
+from app.seed import DEFAULT_BASE, build_demo_trace
 
 PORT = 8778
 BASE = f"http://127.0.0.1:{PORT}"
@@ -81,16 +81,34 @@ async def run_one(spec, invoice, pw) -> tuple[bool, str]:
     return (not mismatches), ("; ".join(mismatches) or "ok")
 
 
+async def run_bad_invoice(spec, pw) -> tuple[bool, str]:
+    """Feed an invoice id that doesn't exist. A correct system fails the run
+    WITHOUT posting anything — safe degradation is a success here, not a pass/
+    fail of the happy path."""
+    before = len(ERP.posted)
+    browser = await pw.chromium.launch(headless=True)
+    try:
+        page = await browser.new_page()
+        run = Run(workflow_id=spec.id, params={"invoice_id": "INV-9999"})
+        runner = Runner(spec, run, PlaywrightSink(page))
+        result = await asyncio.wait_for(runner.execute(), timeout=60)
+    finally:
+        await browser.close()
+    safe = result.status == RunStatus.FAILED and len(ERP.posted) == before
+    return safe, ("failed safely, nothing posted" if safe
+                  else f"UNSAFE: status={result.status.value}, "
+                       f"posted={len(ERP.posted) - before}")
+
+
 async def main() -> int:
     from playwright.async_api import async_playwright
-    from tests.conftest import demo_trace
 
     server = start_server()
     ERP.reset()
 
-    trace = demo_trace.__wrapped__()  # unwrap the pytest fixture
+    trace = build_demo_trace()
     for e in trace.events:
-        e.url = e.url.replace(FIXTURE_BASE, BASE)
+        e.url = e.url.replace(DEFAULT_BASE, BASE)
     spec = induce_heuristic(trace)
     problems = spec.validate_references()
     if problems:
@@ -106,11 +124,16 @@ async def main() -> int:
             passed += ok
             print(f"{invoice.id:<10} {'PASS' if ok else 'FAIL':<6} {detail}")
 
+        # failure-mode row: a bad invoice must degrade safely
+        safe, detail = await run_bad_invoice(spec, pw)
+        print(f"{'INV-9999':<10} {'SAFE' if safe else 'UNSAFE':<6} {detail}")
+
     total = len(INVOICES)
     print("-" * 60)
-    print(f"success rate: {passed}/{total} ({100 * passed / total:.0f}%)")
+    print(f"success rate: {passed}/{total} ({100 * passed / total:.0f}%)  "
+          f"| bad-invoice degrades safely: {'yes' if safe else 'NO'}")
     server.should_exit = True
-    return 0 if passed == total else 1
+    return 0 if passed == total and safe else 1
 
 
 if __name__ == "__main__":
