@@ -71,7 +71,12 @@ def _dynamic_url_token(url: str) -> tuple[str | None, str | None]:
     if not parts or not _looks_dynamic(parts[-1]):
         return None, None
     prev = parts[-2] if len(parts) >= 2 else None
-    key = f"{_slug(prev)}_id" if prev and prev.isalpha() else "id"
+    if prev and prev.isalpha():
+        # a collection segment is usually plural ("payments/AP-1") -> singular key
+        noun = prev[:-1] if prev.endswith("s") and len(prev) > 3 else prev
+        key = f"{_slug(noun)}_id"
+    else:
+        key = "id"
     return parts[-1], key
 
 

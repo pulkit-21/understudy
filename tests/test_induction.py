@@ -62,6 +62,33 @@ def test_vendor_onboarding_is_multi_parameter(demo_trace):
     assert spec.validate_references() == []
 
 
+def test_payment_workflow_is_a_gated_state_change(demo_trace):
+    """The third showcase task: click a specific bill's payment link (a
+    run-varying URL -> parameterized navigate), enter payment inputs, and confirm
+    — a COMMIT that moves money, so it must be gated."""
+    from app.seed import build_payment_trace
+
+    spec = induce_heuristic(build_payment_trace())
+    keys = {p.key for p in spec.parameters}
+    # the plural collection segment is singularized: payments/AP-1 -> payment_id
+    assert keys == {"payment_id", "payment_date", "payment_method"}
+    # the bill reference drives a parameterized navigate, not a hardcoded one
+    nav = [s for s in spec.steps if s.action == ActionType.NAVIGATE]
+    assert any("{{payment_id}}" in (s.url or "") for s in nav)
+    commit = [s for s in spec.steps if s.risk == RiskLevel.COMMIT]
+    assert len(commit) == 1 and commit[0].requires_approval  # 'Confirm payment' gated
+    assert spec.validate_references() == []
+
+
+def test_collection_url_segment_is_singularized_for_param_key():
+    """/erp/payments/AP-5001 -> 'payment_id' (not 'payments_id'); the invoice
+    path (singular already) is unchanged."""
+    from app.induction.heuristic import _dynamic_url_token
+
+    assert _dynamic_url_token("/erp/payments/AP-5001") == ("AP-5001", "payment_id")
+    assert _dynamic_url_token("/portal/invoice/INV-1001") == ("INV-1001", "invoice_id")
+
+
 def test_read_values_become_extracts_referenced_by_fills(demo_trace):
     spec = induce_heuristic(demo_trace)
     extract_keys = {s.extract_key for s in spec.steps

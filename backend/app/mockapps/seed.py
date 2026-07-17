@@ -53,7 +53,7 @@ INVOICES: dict[str, Invoice] = {
                 currency="USD", gl_code="6100", po_number="PO-4471",
                 status="Approved", memo="Freight — June consolidation",
                 line_items=[
-                    _li("Ocean freight, 2× 40ft container", "2", "2100.00", "4200.00"),
+                    _li("Ocean freight, 2x 40ft container", "2", "2100.00", "4200.00"),
                     _li("Customs handling & documentation", "1", "620.00", "620.00"),
                 ]),
         Invoice(id="INV-1002", vendor="Cloudpeak Hosting", date="2026-06-05",

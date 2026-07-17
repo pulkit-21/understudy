@@ -1059,3 +1059,27 @@ headless browser: list, detail, and payments pages all render cleanly.
 one flat field list undersells the system. Richer, realistic screens make the
 "learn any browser workflow" claim credible and give the conversational agent +
 recorder more genuinely different tasks to operate over.
+
+---
+
+## D42 — A third seeded workflow: record a bill payment (gated state change)
+
+**Decision.** Add `build_payment_trace` and seed a third demonstration:
+navigate to LedgerOne Payments → click a specific bill's "Record payment"
+(a run-varying `/erp/payments/AP-5001` URL) → enter payment date + method →
+Confirm payment. Induction produces params `payment_id` (from the parameterized
+navigate), `payment_date`, `payment_method`, and gates the final commit.
+
+Two supporting changes:
+- `_dynamic_url_token` now **singularizes** a plural collection segment, so
+  `/erp/payments/AP-5001` yields `payment_id` (not `payments_id`); the singular
+  `/portal/invoice/INV-1001` is unchanged. Pinned by a unit test.
+- `seed_if_empty` is now **idempotent per workflow** (by stable id) instead of
+  all-or-nothing, so an existing deployment backfills newly-added showcases on
+  the next boot without wiping user data.
+
+**Reasoning.** Three workflows now span the meaningfully different shapes a
+learner must handle: read-live-and-post (1 input), all-operator-input create
+(N inputs), and gated state-change over an existing record (parameterized URL +
+inputs). That's the "learns *procedures*, not one macro" claim, demonstrated.
+85 tests green; ruff + mypy clean.

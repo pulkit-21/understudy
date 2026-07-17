@@ -89,3 +89,22 @@ def test_run_list_is_newest_first(org_id):
     listed = [s["id"] for s in repo.list(org_id)]
     assert listed[0] == ids[-1]
     assert set(listed) == set(ids)
+
+
+def test_seed_is_idempotent_and_backfills_new_workflows(org_id):
+    """seed_if_empty installs all showcase workflows on a fresh org, does
+    nothing on a second run, and — critically — backfills only a missing one
+    (so a deployed org gains newly-added workflows without losing data)."""
+    from app.seed import seed_if_empty
+
+    traces, workflows = TraceRepo(SessionLocal), WorkflowRepo(SessionLocal)
+    assert seed_if_empty(traces, workflows, org_id) is True
+    assert len(workflows.list(org_id)) == 3
+    # second run is a no-op
+    assert seed_if_empty(traces, workflows, org_id) is False
+    assert len(workflows.list(org_id)) == 3
+    # simulate an older deploy missing the payment workflow -> it gets backfilled
+    workflows.delete("wf-demo-payment-001", org_id)
+    assert len(workflows.list(org_id)) == 2
+    assert seed_if_empty(traces, workflows, org_id) is True
+    assert len(workflows.list(org_id)) == 3
