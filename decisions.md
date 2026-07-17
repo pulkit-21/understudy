@@ -875,3 +875,28 @@ still shows the agent's working.
 **Cost/limits.** Each turn is one+ model calls (tool-use loop, capped at 6
 rounds); the endpoint is rate-limited and usage is metered (`kind=agent`) into
 the same cost view.
+
+---
+
+## D34 — Multi-parameter capability, clipboard, and the single-input hero demo
+
+**Multi-parameter workflows already work** — `resolve()` in the heuristic turns a
+run-varying value the operator TYPES that isn't found on any source page into its
+own parameter, while values that ARE on a page become live `extract`s. So a
+workflow has exactly as many inputs as the task genuinely needs. The showcase
+task needs only `invoice_id` **by design** (vendor/date/amount/GL are read live —
+that's the impressive bit), so I proved multi-parameter induction with a test
+(`test_operator_supplied_field_becomes_a_second_parameter`) rather than bolting a
+second required input onto the hero demo (which would also complicate batch,
+whose semantics vary one parameter).
+
+**Clipboard.** Pasting into a field is already captured: the field's `change`
+event carries the final value, so a paste becomes an ordinary `fill`. Copying
+*from* a page is a read, not a state change — handled by provenance (the value is
+matched to the page and becomes an extract). So no dedicated clipboard event is
+needed for faithful replay.
+
+**Recording scope.** The in-browser recorder only injects into our same-origin
+mock apps; recording arbitrary third-party sites needs the browser-extension
+recorder (documented future work). The executor, by contrast, can drive any
+Playwright-reachable page.

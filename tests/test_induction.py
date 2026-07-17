@@ -25,6 +25,29 @@ def test_needs_only_invoice_id(demo_trace):
     assert {p.key for p in spec.parameters} == {"invoice_id"}
 
 
+def test_operator_supplied_field_becomes_a_second_parameter(demo_trace):
+    """Multi-parameter support: a run-varying value the operator TYPES but that
+    isn't found on any source page becomes its own parameter (values that ARE on
+    a page become live extracts instead). So workflows can have as many inputs as
+    the task genuinely needs — this one just needs one because the rest is read
+    live."""
+    from app.models.trace import EventType, SemanticEvent, TargetInfo
+
+    trace = demo_trace
+    # operator types a cost-centre code (run-varying, not on the invoice page)
+    trace.events.insert(-1, SemanticEvent(
+        type=EventType.FILL, url=f"{trace.events[-1].url}", ts_ms=99_999,
+        value="CC-4102",
+        target=TargetInfo(role="textbox", name="Cost center",
+                          testid="field-cost-center", tag="input")))
+    spec = induce_heuristic(trace)
+    keys = {p.key for p in spec.parameters}
+    assert "invoice_id" in keys and "cost_center" in keys      # two inputs now
+    # vendor is still read live, not turned into an input
+    assert any(s.action == ActionType.EXTRACT and s.extract_key == "vendor"
+               for s in spec.steps)
+
+
 def test_read_values_become_extracts_referenced_by_fills(demo_trace):
     spec = induce_heuristic(demo_trace)
     extract_keys = {s.extract_key for s in spec.steps
