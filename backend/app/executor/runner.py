@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Protocol
@@ -27,7 +28,13 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from ..models.trace import TargetInfo
-from ..models.workflow import ActionType, WorkflowSpec, WorkflowStep, render_template
+from ..models.workflow import (
+    ActionType,
+    ApprovalMode,
+    WorkflowSpec,
+    WorkflowStep,
+    render_template,
+)
 
 # ---- run state & events ------------------------------------------------------
 
@@ -81,13 +88,22 @@ class ApprovalRejected(Exception):
 
 class Runner:
     def __init__(self, spec: WorkflowSpec, run: Run, sink: ActionSink,
-                 event_queue: asyncio.Queue | None = None):
+                 event_queue: asyncio.Queue | None = None,
+                 on_state_change: Callable[[], None] | None = None):
         self.spec = spec
         self.run = run
         self.sink = sink
         self._queue = event_queue
+        # persist hook: fires when the run reaches/leaves a gate so the DB (and
+        # thus the approval inbox + dashboard) reflect awaiting_approval, not
+        # just start + terminal states.
+        self._on_state_change = on_state_change
         self._approval = asyncio.Event()
         self._rejected = False
+
+    def _persist(self) -> None:
+        if self._on_state_change:
+            self._on_state_change()
 
     # -- external control (called by the API layer) --
     def approve(self) -> None:
@@ -117,17 +133,46 @@ class Runner:
             self._log("run_failed", detail=f"{type(e).__name__}: {e}")
         return self.run
 
+    def _policy_auto_approve(self) -> tuple[bool, str]:
+        """Consult the workflow's approval policy against live extracts. Returns
+        (auto_approve, reason). Anything it can't confidently evaluate returns
+        False so the step falls through to a human — fail safe, never open."""
+        p = self.spec.approval_policy
+        if p.mode != ApprovalMode.AUTO_BELOW_AMOUNT or p.auto_approve_below is None:
+            return False, ""
+        raw = self.run.extracts.get(p.amount_key)
+        if raw is None:
+            return False, f"no '{p.amount_key}' value to check — needs a human"
+        try:
+            amount = float(str(raw).replace(",", "").replace("$", "").strip())
+        except ValueError:
+            return False, f"amount {raw!r} isn't a number — needs a human"
+        if amount < p.auto_approve_below:
+            return True, (f"amount {amount:g} is below the "
+                          f"{p.auto_approve_below:g} auto-approve threshold")
+        return False, (f"amount {amount:g} is at/above the "
+                       f"{p.auto_approve_below:g} threshold — needs a human")
+
     async def _gate_if_needed(self, step: WorkflowStep) -> None:
         if not step.requires_approval:
             return
+        auto, reason = self._policy_auto_approve()
+        if auto:
+            self._log("auto_approved", actor="policy",
+                      detail=f"Auto-approved by policy: {reason}")
+            return
+        detail = f"Paused before: {step.intent}"
+        if reason:
+            detail += f" — {reason}"
         self.run.status = RunStatus.AWAITING_APPROVAL
-        self._log("awaiting_approval", step_id=step.id,
-                  detail=f"Paused before: {step.intent}")
+        self._log("awaiting_approval", step_id=step.id, detail=detail)
+        self._persist()                      # DB now shows awaiting -> inbox
         self._approval.clear()
         await self._approval.wait()          # hard pause — no timeout bypass
         if self._rejected:
             raise ApprovalRejected()
         self.run.status = RunStatus.RUNNING
+        self._persist()                      # left the gate
 
     async def _do(self, step: WorkflowStep) -> None:
         self._log("step_started", step_id=step.id, detail=step.intent)

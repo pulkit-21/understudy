@@ -54,7 +54,10 @@ class RunManager:
             async with self._sem, async_playwright() as pw:
                 browser = await pw.chromium.launch(headless=self.headless)
                 page = await browser.new_page()
-                runner = Runner(spec, run, PlaywrightSink(page), queue)
+                runner = Runner(
+                    spec, run, PlaywrightSink(page), queue,
+                    on_state_change=lambda: self.repo.save(
+                        run, org_id, batch_id=batch_id))
                 self.runners[run.id] = runner
                 await runner.execute()
                 await browser.close()

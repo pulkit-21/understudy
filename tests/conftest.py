@@ -25,6 +25,11 @@ os.environ.setdefault("UNDERSTUDY_RATELIMIT", "0")  # don't throttle across test
 
 import pytest
 
+# Import the app once at collection time so its module-level run_migrations()
+# provisions the schema BEFORE the _clean_db fixture ever runs create_all —
+# otherwise, in an isolated run, Alembic would try to create tables that
+# _clean_db already made.
+import app.main  # noqa: F401
 from app.db import Base, engine
 from app.models.trace import Trace
 from app.seed import build_demo_trace

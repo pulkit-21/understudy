@@ -60,6 +60,24 @@ class WorkflowParameter(BaseModel):
     required: bool = True
 
 
+class ApprovalMode(str, Enum):
+    ALWAYS_ASK = "always_ask"          # every gated step waits for a human
+    AUTO_BELOW_AMOUNT = "auto_below_amount"  # auto-approve small, safe amounts
+
+
+class ApprovalPolicy(BaseModel):
+    """Per-workflow rule the executor consults at an approval gate. Default is
+    the safe one (always ask). `auto_below_amount` auto-approves a gated step
+    when a numeric extract (e.g. the invoice amount) is below a threshold — the
+    "auto-post small invoices, escalate the big ones" pattern. It can only
+    *resolve* an existing gate automatically; it never removes the gate from the
+    spec, and anything it can't evaluate falls through to a human."""
+
+    mode: ApprovalMode = ApprovalMode.ALWAYS_ASK
+    auto_approve_below: float | None = None
+    amount_key: str = "amount"          # which extract to compare
+
+
 class WorkflowStep(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex[:8])
     intent: str = Field(description="One human-readable sentence: what & why")
@@ -86,6 +104,7 @@ class WorkflowSpec(BaseModel):
     version: int = 1
     status: WorkflowStatus = WorkflowStatus.PUBLISHED
     tags: list[str] = Field(default_factory=list)
+    approval_policy: ApprovalPolicy = Field(default_factory=ApprovalPolicy)
     source_trace_ids: list[str] = Field(default_factory=list)
     parameters: list[WorkflowParameter] = Field(default_factory=list)
     steps: list[WorkflowStep] = Field(default_factory=list)

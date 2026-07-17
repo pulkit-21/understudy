@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, ApiError, RunSummary } from "../api";
 
 function when(iso: string) {
@@ -11,21 +11,29 @@ function when(iso: string) {
 
 export function RunsPage() {
   const nav = useNavigate();
+  const [sp] = useSearchParams();
+  const batch = sp.get("batch") ?? undefined;
+  const status = sp.get("status") ?? undefined;
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.listRuns()
+    setRuns(null);
+    api.listRuns({ batch_id: batch, status })
       .then(setRuns)
       .catch((e) => setError(e instanceof ApiError ? String(e.detail) : String(e)));
-  }, []);
+  }, [batch, status]);
+
+  const filtered = batch || status;
 
   return (
     <div className="container">
       <h1 className="page-title">Runs</h1>
       <p className="page-sub">
-        Every execution of a workflow, newest first — its status, inputs, and a
-        full audit trail. Runs persist across restarts.
+        {batch ? `Batch ${batch} — each value ran as its own governed run.`
+          : status ? `Runs with status "${status.replace("_", " ")}".`
+          : "Every execution of a workflow, newest first — status, inputs, and a full audit trail. Runs persist across restarts."}
+        {filtered && <> <a href="/runs" onClick={(e) => { e.preventDefault(); nav("/runs"); }}>Show all →</a></>}
       </p>
 
       {error && <div className="banner error">{error}</div>}

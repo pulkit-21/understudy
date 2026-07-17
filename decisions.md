@@ -669,3 +669,41 @@ async endpoints (fine at this scale; documented boundary).
 **What I deliberately cut (for now).** Roles/permissions within an org, email
 verification, password reset, refresh tokens — real-product features, but beyond
 what demonstrates the tenancy architecture.
+
+---
+
+## D27 — Policy-governed approvals + lifecycle + batch (the "digital employee")
+
+**Decision.** Three capabilities that turn a single-run tool into an operations
+product, all org-scoped:
+- **Approval policy per workflow.** Default `always_ask`; opt-in
+  `auto_below_amount` auto-approves a gated step when a numeric extract (the
+  invoice amount) is below a threshold — "auto-post the small ones, escalate the
+  big ones." The executor logs auto-approvals with `actor="policy"`. Crucially,
+  policy can only *resolve* a gate; it never removes `requires_approval` from the
+  spec (still enforced by validate_references), and anything it can't parse falls
+  through to a human. This mirrors invoice-copilot's "LLM proposes, deterministic
+  code decides" guard, applied to *approval* rather than extraction.
+- **Workflow lifecycle + version history.** draft/published/archived, an
+  immutable version snapshot on every save, and one-click rollback; duplicate and
+  delete. The library hides archived by default.
+- **Batch runs + a bounded worker pool.** Run a workflow over a list of invoices;
+  a semaphore caps concurrent Chromium instances so a 100-item batch can't
+  exhaust memory. An **approval inbox** (with a live nav badge) is the cross-run
+  queue of what needs a human — the "attention is the scarce resource" framing.
+
+**Bug found and fixed while building it.** The inbox reads *persisted* status,
+but the `awaiting_approval` transition was only ever in memory (runs persisted at
+start + terminal) — so the inbox and dashboard badge stayed empty. Added an
+`on_state_change` persist hook the Runner fires at the gate, so the DB reflects
+awaiting. Caught by driving the real batch flow, not by a unit test — banked as a
+test (`test_awaiting_state_is_persisted_at_the_gate`).
+
+**Alternatives considered.** A full rules engine (per-vendor, per-GL, multiple
+conditions) like invoice-copilot's — deferred; the amount threshold is the 80%
+case and keeps the policy legible. A separate ApprovalPolicy table — kept it on
+the spec so it versions and round-trips with the workflow.
+
+**Tradeoffs.** Auto-approving a commit is real spend authority, so it's opt-in,
+per-workflow, defaults off, logged distinctly, and bounded to what the policy can
+confidently evaluate.

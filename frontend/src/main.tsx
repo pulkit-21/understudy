@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
+import { api } from "./api";
 import { AuthProvider, useAuth } from "./auth";
 import { LoginPage } from "./pages/LoginPage";
 import { TracesPage } from "./pages/TracesPage";
@@ -9,10 +10,24 @@ import { WorkflowPage } from "./pages/WorkflowPage";
 import { RunPage } from "./pages/RunPage";
 import { RunsPage } from "./pages/RunsPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { ApprovalsPage } from "./pages/ApprovalsPage";
 import "./styles.css";
 
 function Shell() {
   const { user, logout } = useAuth();
+  const [pending, setPending] = useState(0);
+
+  // keep the approvals badge fresh — the queue changes as runs hit gates
+  useEffect(() => {
+    let alive = true;
+    const tick = () => api.dashboard()
+      .then((d) => { if (alive) setPending(d.pending_approvals); })
+      .catch(() => {});
+    tick();
+    const t = setInterval(tick, 8000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+
   return (
     <>
       <nav className="nav">
@@ -22,6 +37,9 @@ function Shell() {
         <NavLink to="/" end>Dashboard</NavLink>
         <NavLink to="/workflows">Workflows</NavLink>
         <NavLink to="/runs">Runs</NavLink>
+        <NavLink to="/approvals">
+          Approvals{pending > 0 && <span className="navbadge">{pending}</span>}
+        </NavLink>
         <span className="spacer" />
         <a className="ext" href="/portal" target="_blank" rel="noreferrer">Vendra ↗</a>
         <a className="ext" href="/erp" target="_blank" rel="noreferrer">LedgerOne ↗</a>
@@ -35,6 +53,7 @@ function Shell() {
         <Route path="/workflows/:id" element={<WorkflowPage />} />
         <Route path="/runs" element={<RunsPage />} />
         <Route path="/runs/:id" element={<RunPage />} />
+        <Route path="/approvals" element={<ApprovalsPage />} />
       </Routes>
     </>
   );

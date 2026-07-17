@@ -205,6 +205,9 @@ a:hover { text-decoration: underline; }
 
 /* ---- auth ---- */
 .nav .whoami { color: var(--faint); font-size: 13px; }
+.navbadge { display: inline-grid; place-items: center; min-width: 18px; height: 18px;
+  padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--warn);
+  color: #fff; font-size: 11px; font-weight: 700; vertical-align: middle; }
 .authwrap { min-height: 100vh; display: grid; place-items: center; padding: 24px;
   background: var(--bg); }
 .authcard { width: 100%; max-width: 380px; padding: 30px 28px; }

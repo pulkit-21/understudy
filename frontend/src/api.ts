@@ -33,6 +33,13 @@ export interface WorkflowParameter {
 }
 
 export type WorkflowStatusT = "draft" | "published" | "archived";
+export type ApprovalModeT = "always_ask" | "auto_below_amount";
+
+export interface ApprovalPolicy {
+  mode: ApprovalModeT;
+  auto_approve_below: number | null;
+  amount_key: string;
+}
 
 export interface WorkflowSpec {
   id: string;
@@ -41,6 +48,7 @@ export interface WorkflowSpec {
   version: number;
   status: WorkflowStatusT;
   tags: string[];
+  approval_policy: ApprovalPolicy;
   source_trace_ids: string[];
   parameters: WorkflowParameter[];
   steps: WorkflowStep[];
