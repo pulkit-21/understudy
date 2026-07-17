@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}LedgerOne — Record payment{% endblock %}
+{% block body %}
+<h1>Record payment</h1>
+<p class="sub">
+  Pay bill <strong data-testid="pay-ref">{{ bill.ref }}</strong> —
+  {{ bill.vendor }}, invoice {{ bill.invoice_number }}.
+  <a href="/erp/payments">← Cancel</a>
+</p>
+<div class="card">
+  <dl class="kv">
+    <dt>Vendor</dt><dd data-testid="pay-vendor">{{ bill.vendor }}</dd>
+    <dt>Invoice number</dt><dd data-testid="pay-invoice">{{ bill.invoice_number }}</dd>
+    <dt>Amount</dt><dd data-testid="pay-amount">{{ bill.amount }}</dd>
+  </dl>
+  <form method="post" action="/erp/payments/{{ bill.ref }}" data-testid="payment-form">
+    <label for="paid_date">Payment date</label>
+    <input id="paid_date" name="paid_date" data-testid="field-paid-date"
+           placeholder="YYYY-MM-DD" required>
+    <label for="payment_method">Payment method</label>
+    <select id="payment_method" name="payment_method" data-testid="field-payment-method">
+      <option value="ACH">ACH transfer</option>
+      <option value="Wire">Wire</option>
+      <option value="Check">Check</option>
+      <option value="Card">Corporate card</option>
+    </select>
+    <button type="submit" data-testid="confirm-payment">Confirm payment</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}LedgerOne — Payments{% endblock %}
+{% block body %}
+<h1>Payments</h1>
+<p class="sub">
+  Record payments against posted bills. <a href="/erp" data-testid="nav-bills">← Back to AP</a>
+</p>
+{% if flash %}<div class="notice" data-testid="payment-confirmation">{{ flash }}</div>{% endif %}
+<table data-testid="payables-table">
+  <thead><tr><th>Ref</th><th>Vendor</th><th>Invoice #</th><th>Status</th><th class="right">Amount</th><th></th></tr></thead>
+  <tbody>
+  {% for b in bills %}
+    <tr data-testid="payable-{{ b.ref }}">
+      <td>{{ b.ref }}</td><td>{{ b.vendor }}</td><td>{{ b.invoice_number }}</td>
+      <td><span class="badge {{ b.status|status_class }}">{{ b.status }}</span></td>
+      <td class="right">{{ b.amount }}</td>
+      <td>
+        {% if b.status != "Paid" %}
+          <a class="badge posted btn-link" href="/erp/payments/{{ b.ref }}"
+             data-testid="pay-{{ b.ref }}">Record payment</a>
+        {% else %}
+          <span style="color:var(--mut)">Paid {{ b.paid_date }}</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" style="color:var(--mut)">No bills to pay.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

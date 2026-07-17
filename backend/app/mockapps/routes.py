@@ -18,6 +18,13 @@ from .seed import ERP, INVOICES
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 _RECORDER_JS = Path(__file__).parent / "static" / "recorder.js"
 
+# Map a human status label to a CSS badge class (see base.html).
+_STATUS_CLASS = {
+    "Approved": "approved", "Pending review": "pending", "On hold": "hold",
+    "Paid": "paid", "Posted": "posted",
+}
+templates.env.filters["status_class"] = lambda s: _STATUS_CLASS.get(s, "posted")
+
 PORTAL_BRAND = {"brand_name": "Vendra", "brand_color": "#31589c"}
 ERP_BRAND = {"brand_name": "LedgerOne", "brand_color": "#1f7a5c"}
 
@@ -121,6 +128,39 @@ def erp_create_vendor(
     v = ERP.add_vendor(vendor_name=vendor_name, email=email,
                        payment_terms=payment_terms, tax_id=tax_id)
     return RedirectResponse(f"/erp/vendors?created={v.ref}", status_code=303)
+
+
+# ---- LedgerOne: payments (a third task — a gated state change) --------------
+
+@router.get("/erp/payments", response_class=HTMLResponse)
+def erp_payments(request: Request, paid: str | None = None):
+    flash = f"Payment recorded for {paid}." if paid else None
+    return templates.TemplateResponse(
+        request, "erp_payments.html",
+        {**ERP_BRAND, "bills": ERP.posted, "flash": flash},
+    )
+
+
+@router.get("/erp/payments/{ref}", response_class=HTMLResponse)
+def erp_payment_form(request: Request, ref: str):
+    bill = ERP.find_bill(ref)
+    if bill is None:
+        raise HTTPException(404, f"no bill {ref}")
+    return templates.TemplateResponse(
+        request, "erp_payment_new.html", {**ERP_BRAND, "bill": bill}
+    )
+
+
+@router.post("/erp/payments/{ref}")
+def erp_record_payment(
+    ref: str,
+    paid_date: str = Form(...),
+    payment_method: str = Form(...),
+):
+    bill = ERP.record_payment(ref, paid_date=paid_date, payment_method=payment_method)
+    if bill is None:
+        raise HTTPException(404, f"no unpaid bill {ref}")
+    return RedirectResponse(f"/erp/payments?paid={bill.ref}", status_code=303)
 
 
 @router.post("/erp/_reset")

@@ -3,18 +3,50 @@
 {% block body %}
 <h1>Received invoices</h1>
 <p class="sub">Invoices submitted by your vendors, newest first.</p>
+<div class="toolbar">
+  <input id="q" data-testid="invoice-search" placeholder="Search vendor, number, PO…"
+         oninput="filterInvoices()">
+  <select id="statusFilter" data-testid="status-filter" onchange="filterInvoices()">
+    <option value="">All statuses</option>
+    <option value="Approved">Approved</option>
+    <option value="Pending review">Pending review</option>
+    <option value="On hold">On hold</option>
+    <option value="Paid">Paid</option>
+  </select>
+</div>
 <table data-testid="invoice-table">
-  <thead><tr><th>Invoice #</th><th>Vendor</th><th>Date</th><th class="right">Amount</th><th></th></tr></thead>
+  <thead><tr><th>Invoice #</th><th>Vendor</th><th>PO</th><th>Date</th><th>Status</th><th class="right">Amount</th><th></th></tr></thead>
   <tbody>
   {% for inv in invoices %}
-    <tr>
+    <tr data-row data-vendor="{{ inv.vendor|lower }}" data-id="{{ inv.id|lower }}"
+        data-po="{{ inv.po_number|lower }}" data-status="{{ inv.status }}">
       <td>{{ inv.id }}</td>
       <td>{{ inv.vendor }}</td>
+      <td>{{ inv.po_number or "—" }}</td>
       <td>{{ inv.date }}</td>
+      <td><span class="badge {{ inv.status|status_class }}">{{ inv.status }}</span></td>
       <td class="right">{{ inv.currency }} {{ inv.amount }}</td>
       <td><a href="/portal/invoice/{{ inv.id }}" data-testid="open-{{ inv.id }}">Open</a></td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+<p class="sub" id="empty" data-testid="no-results" style="display:none;margin-top:16px">No invoices match your filter.</p>
+<script>
+  function filterInvoices() {
+    var q = document.getElementById('q').value.trim().toLowerCase();
+    var status = document.getElementById('statusFilter').value;
+    var rows = document.querySelectorAll('tr[data-row]');
+    var shown = 0;
+    rows.forEach(function (r) {
+      var matchQ = !q || r.dataset.vendor.includes(q) ||
+        r.dataset.id.includes(q) || r.dataset.po.includes(q);
+      var matchS = !status || r.dataset.status === status;
+      var vis = matchQ && matchS;
+      r.style.display = vis ? '' : 'none';
+      if (vis) shown++;
+    });
+    document.getElementById('empty').style.display = shown ? 'none' : '';
+  }
+</script>
 {% endblock %}

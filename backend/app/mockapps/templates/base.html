@@ -39,6 +39,20 @@
   .notice { background:#eef7ef; border:1px solid #bfe3c2; padding:14px 18px;
     margin-bottom:20px; border-radius:4px; }
   .right { text-align:right; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; }
+  .toolbar input, .toolbar select { width:auto; flex:1; }
+  .badge { display:inline-block; font-size:11.5px; font-weight:600;
+    padding:2px 9px; border-radius:999px; border:1px solid transparent; }
+  .badge.approved { background:#e7f4ec; color:#1f7a5c; border-color:#bfe3c2; }
+  .badge.pending  { background:#fef6e6; color:#8a5a00; border-color:#f2dca0; }
+  .badge.hold     { background:#fdecec; color:#a3282a; border-color:#f0bcbc; }
+  .badge.paid     { background:#eef1f6; color:#3b4658; border-color:#d3dae6; }
+  .badge.posted   { background:#eaf1fb; color:#2a5db0; border-color:#c3d7f2; }
+  .totals { margin-top:14px; display:grid; grid-template-columns:1fr auto;
+    row-gap:6px; max-width:340px; margin-left:auto; }
+  .totals .lbl { color:var(--mut); }
+  .totals .amt { text-align:right; font-weight:600; }
+  .btn-link { display:inline-block; margin-top:0; padding:6px 12px; font-size:13px; }
 </style>
 </head>
 <body style="--brand: {{ brand_color }}">

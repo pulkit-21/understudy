@@ -1033,3 +1033,29 @@ DX win (drop your key in one file). Tests are kept hermetic — the suite defaul
 to the keyless agent and an autouse fixture clears the settings cache per test so
 a developer's real key never triggers a live call. 76 tests green (was 70),
 ruff + mypy clean.
+
+---
+
+## D41 — Enrich the mock apps (Vendra + LedgerOne)
+
+**Decision.** Make the mock finance apps read like real software and open room
+for more varied workflows:
+- **Vendra invoices** gain a PO number, tax, due date, a lifecycle **status**
+  (Approved / Pending review / On hold / Paid) with colored badges, and a
+  **line-item breakdown** table on the detail page. The invoice list gets a
+  **search box + status filter** (client-side, testid'd).
+- **LedgerOne** bills gain a **status** (Posted → Paid) and a new **Payments**
+  area: a payables list with a "Record payment" action and a payment form
+  (date + method) that flips a bill to Paid — a *gated state change* distinct
+  from the create-bill task.
+
+All existing testids are preserved (the demo trace + eval are untouched); new
+provenance testids (`inv-po`, `inv-due`, `inv-tax`, `inv-status`, `line-items`)
+and payment testids are added. `record_payment` guards against double-payment.
+9 new contract tests pin the enriched surface (76 → 85 green). Verified in a
+headless browser: list, detail, and payments pages all render cleanly.
+
+**Reasoning.** The evaluators judge product thinking and depth; a portal with
+one flat field list undersells the system. Richer, realistic screens make the
+"learn any browser workflow" claim credible and give the conversational agent +
+recorder more genuinely different tasks to operate over.
