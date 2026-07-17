@@ -285,6 +285,14 @@ textarea.input { resize: vertical; }
 .chat-empty-ic { width: 52px; height: 52px; border-radius: 14px; background: var(--primary-wash);
   color: var(--primary); display: grid; place-items: center; margin: 0 auto 12px; }
 .chat-empty .chips { justify-content: center; margin-top: 10px; }
+.agent-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; max-width: 560px; }
+.agent-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+  box-shadow: var(--shadow-sm); }
+.agent-card .grow { flex: 1; min-width: 0; }
+.agent-card .ac-title { font-weight: 600; font-family: var(--mono); font-size: 13px; }
+.agent-card .ac-ic { width: 30px; height: 30px; border-radius: 8px; flex: none;
+  background: var(--primary-wash); color: var(--primary); display: grid; place-items: center; }
 
 @media (max-width: 720px) {
   .sidebar { position: fixed; z-index: 20; transform: translateX(-100%); }

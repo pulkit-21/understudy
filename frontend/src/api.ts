@@ -110,6 +110,16 @@ export interface AgentStep {
   result: Record<string, unknown>;
 }
 
+export interface AgentCard {
+  type: "run" | "workflow";
+  id: string;
+  status?: RunStatus;
+  params?: Record<string, string>;
+  param_keys?: string[];
+  workflow_id?: string;
+  name?: string;
+}
+
 export interface UsageEntry {
   kind: string;
   model: string;
@@ -287,7 +297,7 @@ export const api = {
   usage: () => req<{ total_usd: number; entries: UsageEntry[] }>("/api/usage"),
 
   chat: (messages: { role: string; content: string }[]) =>
-    req<{ reply: string; steps: AgentStep[] }>("/api/agent/chat", {
+    req<{ reply: string; steps: AgentStep[]; cards: AgentCard[] }>("/api/agent/chat", {
       method: "POST", body: JSON.stringify({ messages }),
     }),
 

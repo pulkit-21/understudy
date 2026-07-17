@@ -63,6 +63,32 @@ async def test_run_workflow_rejects_missing_params(demo_trace, org_id):
 
 
 @pytest.mark.asyncio
+async def test_batch_is_two_phase_confirm(demo_trace, org_id, monkeypatch):
+    """Bulk actions preview first and only run after explicit confirmation."""
+    from app.main import runs
+
+    started = []
+    monkeypatch.setattr(runs, "start_run",
+                        lambda *a, **k: started.append(1) or _Stub())
+    spec = induce_heuristic(demo_trace)
+    WorkflowRepo(SessionLocal).save(spec, org_id)
+    tools = _tools(org_id)
+
+    preview = await tools.dispatch("run_batch", {
+        "workflow_id": spec.id, "values": ["INV-1002", "INV-1003"]})
+    assert preview["needs_confirmation"] is True and preview["count"] == 2
+    assert started == []  # nothing started yet
+
+    done = await tools.dispatch("run_batch", {
+        "workflow_id": spec.id, "values": ["INV-1002", "INV-1003"], "confirmed": True})
+    assert done["count"] == 2 and len(started) == 2
+
+
+class _Stub:
+    id = "run-stub"
+
+
+@pytest.mark.asyncio
 async def test_unknown_tool_is_handled():
     res = await _tools("org-x").dispatch("delete_everything", {})
     assert "error" in res

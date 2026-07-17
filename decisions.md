@@ -900,3 +900,31 @@ needed for faithful replay.
 mock apps; recording arbitrary third-party sites needs the browser-extension
 recorder (documented future work). The executor, by contrast, can drive any
 Playwright-reachable page.
+
+---
+
+## D35 — Agent elevated to reference bar: actionable cards + two-phase confirm
+
+**Decision.** After studying invoice-copilot's accepted conversational agent, I
+elevated ours to match its signature patterns:
+- **Typed, actionable cards** in the chat (not just prose): the reply carries a
+  `cards` envelope derived from the agent's tool activity — **run cards** (status
+  pill, params, and inline **Approve/Reject** the *human* clicks — the agent
+  still can't) and **workflow cards** (Open). This is our version of
+  ApprovalCard / InvoiceListCard.
+- **Two-phase confirm for bulk** (their BulkConfirmCard pattern): `run_batch` now
+  previews first (returns `needs_confirmation` + count, starts nothing); the
+  agent tells the user "this will start N runs — confirm?"; only a second call
+  with `confirmed=true` actually launches. Tested: nothing starts on the preview.
+
+**Where we differ (deliberately).** invoice-copilot parses NL into a *typed
+single command* then dispatches deterministically; we use *tool-use* (the model
+calls typed, org-scoped, gated tools in a capped loop). Both keep the LLM out of
+the decision path — ours arguably stronger since the irreversible step is
+*always* human-gated regardless of what the agent does, and there's a test
+asserting the agent has no approval tool. Same spine ("LLM proposes,
+deterministic code decides"), applied at the orchestration layer.
+
+**Still to match (next):** a keyless deterministic fallback for the chat (like
+their mock LLM) so the assistant works with no API key — induction already has
+this; the chat doesn't yet.

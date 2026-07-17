@@ -26,8 +26,11 @@ approval before it posts the bill.
 You help the user DISCOVER, LEARN, and RUN these workflows using the provided
 tools. Rules you must follow:
 - You may START runs (single or batch), but you can NEVER approve or reject an
-  irreversible step. Only a human can, in the Approvals inbox. When a run pauses
-  for approval, say so plainly and tell the user to approve it there.
+  irreversible step. Only a human can. When a run pauses for approval, say so
+  plainly and tell the user to approve it (on the run card here, or in Approvals).
+- For a BATCH, always preview first: call run_batch WITHOUT confirmed, tell the
+  user how many runs it will start, and ask them to confirm. Only after they say
+  yes, call run_batch again with confirmed=true.
 - Prefer acting via tools over guessing. Use real ids returned by tools.
 - Be concise and concrete. Report what you did with the ids and statuses.
 - If asked to do something you have no tool for, say so."""
@@ -51,11 +54,16 @@ def tool_schemas() -> list[dict]:
              "params": {"type": "object", "additionalProperties": {"type": "string"}},
          }, "required": ["workflow_id", "params"]}},
         {"name": "run_batch",
-         "description": "Run a workflow over many values of one parameter at once.",
+         "description": "Run a workflow over many values of one parameter at once. "
+                        "Two-phase: call WITHOUT confirmed first to preview the "
+                        "count; tell the user and ask them to confirm; then call "
+                        "again with confirmed=true to actually start the runs.",
          "input_schema": {"type": "object", "properties": {
              "workflow_id": {"type": "string"},
              "param_key": {"type": "string"},
              "values": {"type": "array", "items": {"type": "string"}},
+             "confirmed": {"type": "boolean",
+                           "description": "true only after the user has confirmed"},
          }, "required": ["workflow_id", "values"]}},
         {"name": "list_runs",
          "description": "List recent runs, optionally filtered by status "
@@ -170,6 +178,14 @@ class AgentTools:
         key = a.get("param_key") or (spec.parameters[0].key if spec.parameters else None)
         if not key:
             return {"error": "workflow has no parameter to vary"}
+        values = a["values"]
+        # two-phase: preview first, execute only after the user confirms
+        if not a.get("confirmed"):
+            return {"needs_confirmation": True, "count": len(values),
+                    "values": values, "workflow": spec.name,
+                    "note": f"This will start {len(values)} runs of '{spec.name}'. "
+                            "Ask the user to confirm, then call run_batch again "
+                            "with confirmed=true."}
         from uuid import uuid4
         batch = "batch-" + uuid4().hex[:10]
         ids = [self.runs.start_run(spec, {key: v}, self.org, batch_id=batch).id
@@ -202,6 +218,58 @@ class AgentTools:
 def _is_async(fn) -> bool:
     import inspect
     return inspect.iscoroutinefunction(fn)
+
+
+def _dedup(xs: list[str]) -> list[str]:
+    seen, out = set(), []
+    for x in xs:
+        if x and x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+
+def _build_cards(tools: AgentTools, steps: list[dict]) -> list[dict]:
+    """Turn the agent's tool activity into actionable cards the chat can render
+    (run cards with inline approve/reject for the human; workflow cards). Fetched
+    fresh so statuses are current."""
+    run_ids: list[str] = []
+    wf_ids: list[str] = []
+    for s in steps:
+        r = s.get("result") or {}
+        inp = s.get("input") or {}
+        if isinstance(r, dict):
+            if r.get("run_id"):
+                run_ids.append(r["run_id"])
+            run_ids += [x for x in r.get("run_ids", []) if isinstance(x, str)]
+            for run in r.get("runs", []):
+                if isinstance(run, dict) and run.get("id"):
+                    run_ids.append(run["id"])
+            if s["tool"] == "get_run" and r.get("id"):
+                run_ids.append(r["id"])
+            for w in r.get("workflows", []):
+                if isinstance(w, dict) and w.get("id"):
+                    wf_ids.append(w["id"])
+            if r.get("workflow_id") and s["tool"] == "induce_workflow":
+                wf_ids.append(r["workflow_id"])
+            if s["tool"] == "get_workflow" and r.get("id"):
+                wf_ids.append(r["id"])
+        if isinstance(inp, dict) and inp.get("workflow_id"):
+            wf_ids.append(inp["workflow_id"])
+
+    cards: list[dict] = []
+    for rid in _dedup(run_ids)[:8]:
+        run = tools.runs.get(rid, tools.org)
+        if run:
+            cards.append({"type": "run", "id": run.id,
+                          "status": run.status.value, "params": run.params,
+                          "workflow_id": run.workflow_id})
+    for wid in _dedup(wf_ids)[:6]:
+        w = tools.workflows.load(wid, tools.org)
+        if w:
+            cards.append({"type": "workflow", "id": w.id, "name": w.name,
+                          "param_keys": [p.key for p in w.parameters]})
+    return cards
 
 
 async def run_agent(history: list[dict], tools: AgentTools) -> dict:
@@ -237,6 +305,7 @@ async def run_agent(history: list[dict], tools: AgentTools) -> dict:
 
         if not tool_uses:
             return {"reply": text or "(no response)", "steps": steps,
+                    "cards": _build_cards(tools, steps),
                     "cost_usd": cost_usd(MODEL, in_tok, out_tok),
                     "input_tokens": in_tok, "output_tokens": out_tok}
 
@@ -252,5 +321,6 @@ async def run_agent(history: list[dict], tools: AgentTools) -> dict:
 
     return {"reply": "I did several steps but stopped to avoid looping — check "
                      "the activity trace and Runs.", "steps": steps,
+            "cards": _build_cards(tools, steps),
             "cost_usd": cost_usd(MODEL, in_tok, out_tok),
             "input_tokens": in_tok, "output_tokens": out_tok}

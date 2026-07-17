@@ -351,7 +351,8 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
             usage.record(user.org_id, MODEL, result.get("input_tokens", 0),
                          result.get("output_tokens", 0), result["cost_usd"],
                          kind="agent")
-        return {"reply": result["reply"], "steps": result["steps"]}
+        return {"reply": result["reply"], "steps": result["steps"],
+                "cards": result.get("cards", [])}
 
     @r.post("/runs/{run_id}/retry")
     @limiter.limit("30/minute")
