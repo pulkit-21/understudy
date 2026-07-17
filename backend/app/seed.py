@@ -81,20 +81,37 @@ def build_demo_trace(base: str = DEFAULT_BASE) -> Trace:
                  start_url=f"{base}/portal")
 
 
-def seed_if_empty(traces, workflows, base: str = DEFAULT_BASE) -> bool:
-    """Idempotent boot-time seed: if there are no workflows yet, install the
+DEMO_EMAIL = "demo@understudy.app"
+DEMO_PASSWORD = "understudy"
+
+
+def seed_demo_account(auth) -> str:
+    """Ensure the demo account exists; return its org_id. The demo login on the
+    sign-in screen uses these credentials so evaluators can get in with one
+    click (no real data behind it)."""
+    existing = auth.authenticate(DEMO_EMAIL, DEMO_PASSWORD)
+    if existing is not None:
+        return existing.org_id
+    org = auth.create_org(name="Understudy demo")
+    user = auth.create_user(DEMO_EMAIL, DEMO_PASSWORD, "Demo user", org.id)
+    return user.org_id
+
+
+def seed_if_empty(traces, workflows, org_id: str,
+                  base: str = DEFAULT_BASE) -> bool:
+    """Idempotent boot-time seed: if the org has no workflows yet, install the
     demonstration trace and a deterministic induced workflow so a fresh deploy
     is immediately demoable. Uses the offline heuristic inducer (no network /
     API key needed at boot); the LLM legibility pass is available on demand via
     the induce endpoint. Returns True if it seeded."""
     from .induction.heuristic import induce_heuristic
 
-    if workflows.list():
+    if workflows.list(org_id):
         return False
     trace = build_demo_trace(base=base)
     trace.id = "demo-seed-001"
-    traces.save(trace)
+    traces.save(trace, org_id)
     spec = induce_heuristic(trace)
     spec.id = "wf-demo-invoice"
-    workflows.save(spec)
+    workflows.save(spec, org_id)
     return True

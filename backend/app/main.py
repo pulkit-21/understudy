@@ -15,12 +15,18 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
+from .api.auth_routes import build_auth_router
 from .api.routes import build_router
+from .auth import AuthRepo, bind_auth_repo
 from .db import RunRepo, SessionLocal, TraceRepo, WorkflowRepo, run_migrations
 from .executor.manager import RunManager
 from .mockapps.routes import router as mockapps_router
-from .seed import seed_if_empty
+from .ratelimit import limiter
+from .seed import seed_demo_account, seed_if_empty
 
 DATA_DIR = Path(os.environ.get("UNDERSTUDY_DATA", "./data"))
 BASE_URL = os.environ.get("UNDERSTUDY_BASE_URL", "http://localhost:8000")
@@ -29,6 +35,8 @@ FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 # Provision the schema before anything reads/writes (idempotent).
 run_migrations()
 
+auth = AuthRepo(SessionLocal)
+bind_auth_repo(auth)
 traces = TraceRepo(SessionLocal)
 workflows = WorkflowRepo(SessionLocal)
 runs = RunManager(base_url=BASE_URL, run_repo=RunRepo(SessionLocal),
@@ -37,18 +45,24 @@ runs = RunManager(base_url=BASE_URL, run_repo=RunRepo(SessionLocal),
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # A fresh deploy seeds itself so it's demoable on first load.
-    seed_if_empty(traces, workflows, base=BASE_URL)
+    # A fresh deploy seeds a demo account + workflow so it's demoable on load.
+    demo_org = seed_demo_account(auth)
+    seed_if_empty(traces, workflows, demo_org, base=BASE_URL)
     yield
 
 
 app = FastAPI(title="Understudy", version="0.1.0", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(
+    RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(mockapps_router)
+app.include_router(build_auth_router(auth))
 app.include_router(build_router(traces, workflows, runs))
 
 

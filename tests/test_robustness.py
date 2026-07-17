@@ -246,14 +246,21 @@ async def test_concurrent_runs_have_isolated_state_and_approvals():
 
 # ---- 5. a client connects to the audit stream late (SSE reconnect) -----------
 
-def test_sse_replays_full_history_for_a_late_subscriber():
+def test_sse_replays_full_history_for_a_late_subscriber(org_id):
     """Reconnecting to a run that already finished must replay its entire audit
-    log, not start blank — the property a dropped SSE connection relies on."""
+    log, not start blank — the property a dropped SSE connection relies on. The
+    JWT arrives as ?token= because EventSource can't set headers."""
     from fastapi.testclient import TestClient
 
+    from app.auth import issue_token
     from app.executor.runner import RunEvent
+    from app.main import app, auth
+    from app.main import runs as run_manager
 
+    user = auth.create_user("sse@example.com", "password123", "S", org_id)
+    token = issue_token(user)
     client = TestClient(app)
+
     run = Run(workflow_id="wf-x", params={"invoice_id": "INV-1005"})
     run.events = [
         RunEvent(kind="step_started", detail="open portal"),
@@ -262,12 +269,12 @@ def test_sse_replays_full_history_for_a_late_subscriber():
         RunEvent(kind="run_done", detail="Workflow completed."),
     ]
     run.status = RunStatus.COMPLETED
-    # persist so the endpoint (memory miss) hydrates it from the DB
-    from app.main import runs as run_manager
-    run_manager.repo.save(run)
+    run_manager.repo.save(run, org_id)  # persist so the endpoint hydrates it
 
-    body = client.get(f"/api/runs/{run.id}/events").text
+    body = client.get(f"/api/runs/{run.id}/events?token={token}").text
     assert "open portal" in body
     assert "amount = '18990.00'" in body
     assert "Human approved." in body
     assert "Workflow completed." in body
+    # and without a token it's unauthorized
+    assert client.get(f"/api/runs/{run.id}/events").status_code == 401

@@ -32,11 +32,15 @@ export interface WorkflowParameter {
   required: boolean;
 }
 
+export type WorkflowStatusT = "draft" | "published" | "archived";
+
 export interface WorkflowSpec {
   id: string;
   name: string;
   description: string;
   version: number;
+  status: WorkflowStatusT;
+  tags: string[];
   source_trace_ids: string[];
   parameters: WorkflowParameter[];
   steps: WorkflowStep[];
@@ -73,6 +77,33 @@ export interface RunSummary {
   created_at: string;
   params: Record<string, string>;
   steps: number;
+  batch_id?: string | null;
+  cost_usd?: number;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  org_id: string;
+}
+
+export interface WorkflowVersion {
+  version: number;
+  created_at: string;
+  name: string;
+  steps: number;
+}
+
+export interface DashboardData {
+  workflows: number;
+  run_counts: Record<string, number>;
+  total_runs: number;
+  pending_approvals: number;
+  success_rate: number | null;
+  cost_usd: number;
+  minutes_saved: number;
+  recent: RunSummary[];
 }
 
 export type RunStatus =
@@ -108,12 +139,35 @@ export class ApiError extends Error {
   }
 }
 
+// ---- auth token (persisted; attached to every request) ----------------------
+const TOKEN_KEY = "understudy_token";
+export const auth = {
+  get: () => localStorage.getItem(TOKEN_KEY),
+  set: (t: string) => localStorage.setItem(TOKEN_KEY, t),
+  clear: () => localStorage.removeItem(TOKEN_KEY),
+};
+
+// Notify the app to bounce to the login screen when a token goes stale.
+let onUnauthorized: () => void = () => {};
+export function setUnauthorizedHandler(fn: () => void) {
+  onUnauthorized = fn;
+}
+
 async function req<T>(url: string, init?: RequestInit): Promise<T> {
+  const token = auth.get();
   const res = await fetch(url, {
-    headers: { "content-type": "application/json" },
     ...init,
+    headers: {
+      "content-type": "application/json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers ?? {}),
+    },
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      auth.clear();
+      onUnauthorized();
+    }
     let detail: unknown = res.statusText;
     try {
       detail = (await res.json()).detail ?? detail;
@@ -126,6 +180,17 @@ async function req<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // ---- auth ----
+  register: (email: string, password: string, name: string) =>
+    req<{ token: string; user: AuthUser }>("/api/auth/register", {
+      method: "POST", body: JSON.stringify({ email, password, name }),
+    }),
+  login: (email: string, password: string) =>
+    req<{ token: string; user: AuthUser }>("/api/auth/login", {
+      method: "POST", body: JSON.stringify({ email, password }),
+    }),
+  me: () => req<AuthUser>("/api/auth/me"),
+
   listTraces: () => req<TraceSummary[]>("/api/traces"),
   getTrace: (id: string) => req<Trace>(`/api/traces/${id}`),
 
@@ -140,7 +205,14 @@ export const api = {
       { method: "POST" },
     ),
 
-  listRuns: () => req<RunSummary[]>("/api/runs"),
+  dashboard: () => req<DashboardData>("/api/dashboard"),
+
+  listRuns: (opts?: { status?: string; batch_id?: string }) => {
+    const q = new URLSearchParams(
+      Object.entries(opts ?? {}).filter(([, v]) => v) as [string, string][],
+    ).toString();
+    return req<RunSummary[]>("/api/runs" + (q ? `?${q}` : ""));
+  },
 
   induce: (traceId: string, use_llm = true) =>
     req<{ workflow: WorkflowSpec; induced_by: string; problems: string[] }>(
@@ -148,24 +220,45 @@ export const api = {
       { method: "POST", body: JSON.stringify({ use_llm }) },
     ),
 
-  listWorkflows: () => req<WorkflowSpec[]>("/api/workflows"),
+  listWorkflows: (includeArchived = false) =>
+    req<WorkflowSpec[]>(
+      "/api/workflows" + (includeArchived ? "?include_archived=true" : "")),
   getWorkflow: (id: string) => req<WorkflowSpec>(`/api/workflows/${id}`),
   saveWorkflow: (id: string, spec: WorkflowSpec) =>
     req<WorkflowSpec>(`/api/workflows/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(spec),
+      method: "PUT", body: JSON.stringify(spec),
+    }),
+  setWorkflowStatus: (id: string, status: WorkflowStatusT) =>
+    req<WorkflowSpec>(`/api/workflows/${id}/status`, {
+      method: "POST", body: JSON.stringify({ status }),
+    }),
+  duplicateWorkflow: (id: string) =>
+    req<WorkflowSpec>(`/api/workflows/${id}/duplicate`, { method: "POST" }),
+  deleteWorkflow: (id: string) =>
+    req<void>(`/api/workflows/${id}`, { method: "DELETE" }),
+  workflowVersions: (id: string) =>
+    req<WorkflowVersion[]>(`/api/workflows/${id}/versions`),
+  rollbackWorkflow: (id: string, version: number) =>
+    req<WorkflowSpec>(`/api/workflows/${id}/rollback/${version}`, {
+      method: "POST",
     }),
 
   startRun: (wfId: string, params: Record<string, string>) =>
     req<{ run_id: string }>(`/api/workflows/${wfId}/runs`, {
-      method: "POST",
-      body: JSON.stringify({ params }),
+      method: "POST", body: JSON.stringify({ params }),
     }),
+  startBatch: (wfId: string, param_values: string[], param_key?: string) =>
+    req<{ batch_id: string; run_ids: string[]; count: number }>(
+      `/api/workflows/${wfId}/batch`, {
+        method: "POST", body: JSON.stringify({ param_values, param_key }),
+      }),
   getRun: (id: string) => req<Run>(`/api/runs/${id}`),
   approve: (id: string) =>
     req<{ ok: boolean }>(`/api/runs/${id}/approve`, { method: "POST" }),
   reject: (id: string) =>
     req<{ ok: boolean }>(`/api/runs/${id}/reject`, { method: "POST" }),
 
-  runEventsUrl: (id: string) => `/api/runs/${id}/events`,
+  // token in the query because EventSource can't send an auth header
+  runEventsUrl: (id: string) =>
+    `/api/runs/${id}/events?token=${encodeURIComponent(auth.get() ?? "")}`,
 };

@@ -202,3 +202,25 @@ a:hover { text-decoration: underline; }
 .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; }
 .toolbar .grow { flex: 1; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ---- auth ---- */
+.nav .whoami { color: var(--faint); font-size: 13px; }
+.authwrap { min-height: 100vh; display: grid; place-items: center; padding: 24px;
+  background: var(--bg); }
+.authcard { width: 100%; max-width: 380px; padding: 30px 28px; }
+.authcard .or { text-align: center; color: var(--faint); font-size: 12px;
+  margin: 16px 0; position: relative; }
+.authcard .or::before, .authcard .or::after { content: ""; position: absolute;
+  top: 50%; width: 40%; height: 1px; background: var(--border); }
+.authcard .or::before { left: 0; } .authcard .or::after { right: 0; }
+.authswitch { text-align: center; margin-top: 16px; font-size: 14px;
+  color: var(--muted); }
+.authswitch a { cursor: pointer; font-weight: 550; }
+
+/* ---- dashboard stat grid ---- */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px; margin-bottom: 10px; }
+.stat { padding: 16px 18px; }
+.stat-value { font-size: 28px; font-weight: 680; letter-spacing: -0.02em; }
+.stat-label { color: var(--muted); font-size: 13px; font-weight: 550; margin-top: 2px; }
+.stat-hint { color: var(--faint); font-size: 12px; margin-top: 4px; }

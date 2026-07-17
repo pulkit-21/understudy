@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 _TMP = tempfile.mkdtemp(prefix="understudy-test-")
 os.environ.setdefault("UNDERSTUDY_DATA", _TMP)
 os.environ.setdefault("DATABASE_URL", f"sqlite:///{_TMP}/test.db")
+os.environ.setdefault("UNDERSTUDY_RATELIMIT", "0")  # don't throttle across tests
 
 import pytest
 
@@ -42,3 +43,26 @@ def _clean_db():
 @pytest.fixture()
 def demo_trace() -> Trace:
     return build_demo_trace(base=BASE)
+
+
+@pytest.fixture()
+def org_id() -> str:
+    """A fresh tenant for a test."""
+    from app.main import auth
+    return auth.create_org("test-org").id
+
+
+@pytest.fixture()
+def authed_client(org_id):
+    """A TestClient with a valid bearer token for a fresh user in `org_id`.
+    Returns (client, org_id)."""
+    from fastapi.testclient import TestClient
+
+    from app.auth import issue_token
+    from app.main import app, auth
+
+    user = auth.create_user("tester@example.com", "password123", "Tester",
+                            org_id)
+    client = TestClient(app)
+    client.headers.update({"Authorization": f"Bearer {issue_token(user)}"})
+    return client, org_id

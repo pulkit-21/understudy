@@ -47,6 +47,12 @@ class RiskLevel(str, Enum):
     COMMIT = "commit"       # posts/submits/pays — irreversible, gate it
 
 
+class WorkflowStatus(str, Enum):
+    DRAFT = "draft"         # being edited; not runnable in batch/schedules
+    PUBLISHED = "published"  # active, runnable
+    ARCHIVED = "archived"   # retired; kept for history, hidden by default
+
+
 class WorkflowParameter(BaseModel):
     key: str
     description: str = ""
@@ -78,6 +84,8 @@ class WorkflowSpec(BaseModel):
     name: str
     description: str = ""
     version: int = 1
+    status: WorkflowStatus = WorkflowStatus.PUBLISHED
+    tags: list[str] = Field(default_factory=list)
     source_trace_ids: list[str] = Field(default_factory=list)
     parameters: list[WorkflowParameter] = Field(default_factory=list)
     steps: list[WorkflowStep] = Field(default_factory=list)
