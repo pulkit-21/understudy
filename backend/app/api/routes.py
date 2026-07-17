@@ -16,7 +16,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..auth import User, current_user, user_from_token
-from ..db.repositories import TraceRepo, WorkflowRepo
+from ..db.repositories import TraceRepo, UsageRepo, WorkflowRepo
 from ..executor.manager import RunManager
 from ..induction.heuristic import induce_heuristic
 from ..induction.llm import InductionError, enrich_with_llm
@@ -55,7 +55,7 @@ class StartRecordingBody(BaseModel):
 
 
 def build_router(traces: TraceRepo, workflows: WorkflowRepo,
-                 runs: RunManager) -> APIRouter:
+                 runs: RunManager, usage: UsageRepo) -> APIRouter:
     r = APIRouter(prefix="/api")
 
     # ---- traces -----------------------------------------------------------
@@ -135,7 +135,12 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
         enriched_by = "heuristic"
         if body.use_llm:
             try:
-                spec = await enrich_with_llm(t, spec)
+                spec = await enrich_with_llm(
+                    t, spec,
+                    on_usage=lambda u: usage.record(
+                        user.org_id, u["model"], u["input_tokens"],
+                        u["output_tokens"], u["cost_usd"]),
+                )
                 enriched_by = "heuristic+llm"
             except InductionError:
                 pass  # keep the deterministic draft
@@ -284,10 +289,28 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
             "total_runs": sum(counts.values()),
             "pending_approvals": counts.get("awaiting_approval", 0),
             "success_rate": (done / finished) if finished else None,
-            "cost_usd": round(runs.repo.total_cost(org), 4),
+            "cost_usd": round(usage.total(org), 4),
             "minutes_saved": minutes_saved,
             "recent": runs.list(org, limit=6),
         }
+
+    @r.get("/usage")
+    def usage_log(user: User = Depends(current_user)):
+        return {"total_usd": round(usage.total(user.org_id), 4),
+                "entries": usage.recent(user.org_id)}
+
+    @r.post("/runs/{run_id}/retry")
+    @limiter.limit("30/minute")
+    async def retry_run(run_id: str, request: Request,
+                        user: User = Depends(current_user)):
+        prev = runs.get(run_id, user.org_id)
+        if prev is None:
+            raise HTTPException(404)
+        spec = workflows.load(prev.workflow_id, user.org_id)
+        if spec is None:
+            raise HTTPException(409, "the workflow no longer exists")
+        run = _launch(spec, prev.params, user.org_id)
+        return {"run_id": run.id}
 
     @r.get("/runs/{run_id}")
     def get_run(run_id: str, user: User = Depends(current_user)):

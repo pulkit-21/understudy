@@ -203,6 +203,25 @@ class Runner:
             self._log("healed", step_id=step.id,
                       detail=f"Located target via fallback strategy: {how}")
         self._log("step_done", step_id=step.id, detail=step.intent)
+        await self._capture_frame(step)
+
+    async def _capture_frame(self, step: WorkflowStep) -> None:
+        """Best-effort live screenshot streamed to watchers (queue-only, never
+        persisted — base64 frames would bloat the audit log). Shows the agent
+        actually driving the browser."""
+        if self._queue is None:
+            return
+        try:
+            img = await self.sink.screenshot()
+        except Exception:
+            return
+        if not img:
+            return
+        import base64
+        frame = RunEvent(kind="frame", step_id=step.id,
+                         detail=base64.b64encode(img).decode())
+        with contextlib.suppress(asyncio.QueueFull):
+            self._queue.put_nowait(frame)
 
     def _log(self, kind: str, actor: str = "agent",
              step_id: str | None = None, detail: str = "") -> None:

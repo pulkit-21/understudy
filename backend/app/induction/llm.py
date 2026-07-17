@@ -27,11 +27,28 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 
 from ..models.trace import Trace
 from ..models.workflow import WorkflowSpec
 
 MODEL = os.environ.get("UNDERSTUDY_MODEL", "claude-opus-4-8")
+
+# USD per input / output token, by model-id prefix. Used to meter induction cost
+# (the only place Understudy calls an LLM — runs are deterministic and free).
+_PRICING = {
+    "claude-opus": (5.0 / 1e6, 25.0 / 1e6),
+    "claude-sonnet": (3.0 / 1e6, 15.0 / 1e6),
+    "claude-haiku": (1.0 / 1e6, 5.0 / 1e6),
+    "claude-fable": (5.0 / 1e6, 25.0 / 1e6),
+}
+
+
+def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    for prefix, (pin, pout) in _PRICING.items():
+        if model.startswith(prefix):
+            return input_tokens * pin + output_tokens * pout
+    return 0.0
 
 SYSTEM = """\
 You are improving the READABILITY of an already-correct browser-workflow spec
@@ -86,9 +103,16 @@ def validate_enrichment(draft: WorkflowSpec, enriched: WorkflowSpec) -> None:
         raise InductionError("enriched spec inconsistent — rejected")
 
 
-async def enrich_with_llm(trace: Trace, draft: WorkflowSpec) -> WorkflowSpec:
+async def enrich_with_llm(
+    trace: Trace, draft: WorkflowSpec,
+    on_usage: Callable[[dict], None] | None = None,
+) -> WorkflowSpec:
     """Best-effort legibility pass. Raises InductionError on any hard failure or
-    invariant violation; callers should catch and fall back to the draft."""
+    invariant violation; callers should catch and fall back to the draft.
+
+    If `on_usage` is given, it's called once with token/cost metering for the
+    call — the caller records it (observability without coupling this module to
+    the DB)."""
     try:
         from anthropic import AsyncAnthropic
     except ImportError as e:
@@ -107,6 +131,14 @@ async def enrich_with_llm(trace: Trace, draft: WorkflowSpec) -> WorkflowSpec:
         system=SYSTEM,
         messages=[{"role": "user", "content": json.dumps(payload)}],
     )
+    if on_usage is not None:
+        u = msg.usage
+        on_usage({
+            "model": MODEL,
+            "input_tokens": u.input_tokens,
+            "output_tokens": u.output_tokens,
+            "cost_usd": cost_usd(MODEL, u.input_tokens, u.output_tokens),
+        })
     text = "".join(b.text for b in msg.content if b.type == "text").strip()
     if text.startswith("```"):
         text = text.strip("`")

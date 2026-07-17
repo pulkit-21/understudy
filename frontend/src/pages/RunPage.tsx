@@ -21,6 +21,7 @@ export function RunPage() {
   const [status, setStatus] = useState<RunStatus>("running");
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [extracts, setExtracts] = useState<Record<string, string>>({});
+  const [frame, setFrame] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const logEnd = useRef<HTMLDivElement>(null);
@@ -39,6 +40,7 @@ export function RunPage() {
     es.onmessage = (m) => {
       const evt = JSON.parse(m.data);
       if (evt.kind === "stream_end") { es.close(); return; }
+      if (evt.kind === "frame") { setFrame(evt.detail); return; }  // live view, not logged
       setEvents((prev) => [...prev, evt as RunEvent]);
       if (KIND_TO_STATUS[evt.kind]) setStatus(KIND_TO_STATUS[evt.kind]);
       if (evt.kind === "extracted") {
@@ -65,7 +67,20 @@ export function RunPage() {
   }
 
   const awaiting = status === "awaiting_approval";
+  const terminal = ["completed", "failed", "rejected"].includes(status);
   const gateStep = [...events].reverse().find((e) => e.kind === "awaiting_approval");
+
+  async function retry() {
+    setActing(true);
+    setError(null);
+    try {
+      const { run_id } = await api.retryRun(id);
+      nav(`/runs/${run_id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? String(e.detail) : String(e));
+      setActing(false);
+    }
+  }
 
   return (
     <div className="container">
@@ -77,6 +92,11 @@ export function RunPage() {
           </a>
         )}
         <div className="grow" />
+        {terminal && (
+          <button className="btn sm" disabled={acting} onClick={retry}>
+            ↻ Run again
+          </button>
+        )}
         <span className={"status-pill status-" + status}>
           <span className="dot" />
           {status.replace("_", " ")}
@@ -120,6 +140,18 @@ export function RunPage() {
       )}
       {status === "rejected" && (
         <div className="banner warn">Run rejected at the approval gate — nothing was posted.</div>
+      )}
+
+      {frame && (
+        <>
+          <div className="section-h">
+            Live view {status === "running" && <span className="livedot" />}
+          </div>
+          <div className="card" style={{ padding: 8, overflow: "hidden" }}>
+            <img src={`data:image/jpeg;base64,${frame}`} alt="agent browser"
+                 style={{ width: "100%", borderRadius: 6, display: "block" }} />
+          </div>
+        </>
       )}
 
       {Object.keys(extracts).length > 0 && (

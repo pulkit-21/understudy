@@ -102,8 +102,23 @@ def upgrade() -> None:
     op.create_index("ix_runs_status", "runs", ["status"])
     op.create_index("ix_runs_created_at", "runs", ["created_at"])
 
+    op.create_table(
+        "usage",
+        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+        sa.Column("org_id", sa.String(), nullable=False),
+        sa.Column("kind", sa.String(), nullable=False, server_default="induction"),
+        sa.Column("model", sa.String(), nullable=False, server_default=""),
+        sa.Column("input_tokens", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("output_tokens", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("cost_usd", sa.Float(), nullable=False, server_default="0"),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+    )
+    op.create_index("ix_usage_org_id", "usage", ["org_id"])
+    op.create_index("ix_usage_created_at", "usage", ["created_at"])
+
 
 def downgrade() -> None:
+    op.drop_table("usage")
     op.drop_table("runs")
     op.drop_table("workflow_versions")
     op.drop_table("workflows")

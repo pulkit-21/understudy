@@ -80,6 +80,22 @@ class WorkflowVersionRow(Base):
     payload: Mapped[dict] = mapped_column(JSON)
 
 
+class UsageRow(Base):
+    """One metered LLM call (induction). Enables the cost/usage view — the only
+    place Understudy spends model tokens; runs are deterministic and free."""
+    __tablename__ = "usage"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    org_id: Mapped[str] = mapped_column(String, index=True)
+    kind: Mapped[str] = mapped_column(String, default="induction")
+    model: Mapped[str] = mapped_column(String, default="")
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 index=True)
+
+
 class RunRow(Base):
     __tablename__ = "runs"
 

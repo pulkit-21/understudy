@@ -707,3 +707,30 @@ the spec so it versions and round-trips with the workflow.
 **Tradeoffs.** Auto-approving a commit is real spend authority, so it's opt-in,
 per-workflow, defaults off, logged distinctly, and bounded to what the policy can
 confidently evaluate.
+
+---
+
+## D28 — Observability: cost metering, live screenshot view, run retry
+
+**Decision.** Round out Phase 5 with the observability a real operator wants:
+- **LLM cost metering.** `enrich_with_llm` surfaces token usage via an optional
+  callback; the induce endpoint records a `usage` row (org, model, tokens, cost)
+  priced per model. The dashboard's LLM-cost stat and a `/api/usage` log read
+  from it. This is honest metering of the *only* place Understudy spends tokens
+  — induction. Runs stay deterministic and free, and the dashboard says so.
+- **Live view.** The Runner captures a screenshot after each step and streams it
+  as a queue-only `frame` SSE event (never persisted — base64 would bloat the
+  audit log). The run page shows the agent's actual browser as it works. Turns
+  "trust me, it's driving a browser" into "watch it."
+- **Run retry.** One click re-runs a finished run with the same inputs.
+
+**Reasoning.** Metering-via-callback keeps the LLM module decoupled from the DB
+(the caller decides what to do with usage) — the same seam the reference
+solutions use for their metered clients. Frames are deliberately ephemeral:
+live watchers get them, the durable audit trail stays lean, and a run replayed
+from the DB simply has no frames (correct — they were live-only).
+
+**Tradeoffs.** A screenshot per step adds ~100–200ms/step and ~1MB of transient
+SSE per run — fine for interactive use, and it's best-effort (a failed capture
+never fails the run). Not persisting frames means no after-the-fact playback;
+that's the right call for audit-log size, listed as future work if needed.

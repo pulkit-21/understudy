@@ -6,11 +6,12 @@ from .models import (
     OrgRow,
     RunRow,
     TraceRow,
+    UsageRow,
     UserRow,
     WorkflowRow,
     WorkflowVersionRow,
 )
-from .repositories import RunRepo, TraceRepo, WorkflowRepo
+from .repositories import RunRepo, TraceRepo, UsageRepo, WorkflowRepo
 
 __all__ = [
     "Base",
@@ -20,6 +21,8 @@ __all__ = [
     "SessionLocal",
     "TraceRepo",
     "TraceRow",
+    "UsageRepo",
+    "UsageRow",
     "UserRow",
     "WorkflowRepo",
     "WorkflowRow",

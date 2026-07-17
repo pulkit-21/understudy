@@ -103,6 +103,15 @@ export interface WorkflowVersion {
   steps: number;
 }
 
+export interface UsageEntry {
+  kind: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+  created_at: string;
+}
+
 export interface DashboardData {
   workflows: number;
   run_counts: Record<string, number>;
@@ -261,10 +270,13 @@ export const api = {
         method: "POST", body: JSON.stringify({ param_values, param_key }),
       }),
   getRun: (id: string) => req<Run>(`/api/runs/${id}`),
+  retryRun: (id: string) =>
+    req<{ run_id: string }>(`/api/runs/${id}/retry`, { method: "POST" }),
   approve: (id: string) =>
     req<{ ok: boolean }>(`/api/runs/${id}/approve`, { method: "POST" }),
   reject: (id: string) =>
     req<{ ok: boolean }>(`/api/runs/${id}/reject`, { method: "POST" }),
+  usage: () => req<{ total_usd: number; entries: UsageEntry[] }>("/api/usage"),
 
   // token in the query because EventSource can't send an auth header
   runEventsUrl: (id: string) =>

@@ -15,7 +15,13 @@ from sqlalchemy.orm import Session
 from ..executor.runner import Run
 from ..models.trace import Trace
 from ..models.workflow import WorkflowSpec
-from .models import RunRow, TraceRow, WorkflowRow, WorkflowVersionRow
+from .models import (
+    RunRow,
+    TraceRow,
+    UsageRow,
+    WorkflowRow,
+    WorkflowVersionRow,
+)
 
 SessionFactory = Callable[[], Session]
 
@@ -206,3 +212,37 @@ class RunRepo:
                 "created_at": r.created_at, "params": r.params,
                 "batch_id": r.batch_id, "cost_usd": r.cost_usd,
                 "steps": len(r.payload.get("events", []))}
+
+
+class UsageRepo:
+    def __init__(self, session_factory: SessionFactory):
+        self._sf = session_factory
+
+    def record(self, org_id: str, model: str, input_tokens: int,
+               output_tokens: int, cost: float, kind: str = "induction") -> None:
+        with self._sf() as s:
+            s.add(UsageRow(org_id=org_id, kind=kind, model=model,
+                           input_tokens=input_tokens, output_tokens=output_tokens,
+                           cost_usd=cost, created_at=_now()))
+            s.commit()
+
+    def total(self, org_id: str) -> float:
+        from sqlalchemy import func
+        with self._sf() as s:
+            v = s.execute(
+                select(func.coalesce(func.sum(UsageRow.cost_usd), 0.0))
+                .where(UsageRow.org_id == org_id)
+            ).scalar_one()
+            return float(v)
+
+    def recent(self, org_id: str, limit: int = 50) -> list[dict]:
+        with self._sf() as s:
+            rows = s.execute(
+                select(UsageRow).where(UsageRow.org_id == org_id)
+                .order_by(UsageRow.created_at.desc()).limit(limit)
+            ).scalars().all()
+            return [{"kind": r.kind, "model": r.model,
+                     "input_tokens": r.input_tokens,
+                     "output_tokens": r.output_tokens,
+                     "cost_usd": r.cost_usd, "created_at": r.created_at}
+                    for r in rows]

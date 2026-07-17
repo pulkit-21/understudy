@@ -22,7 +22,14 @@ from slowapi.middleware import SlowAPIMiddleware
 from .api.auth_routes import build_auth_router
 from .api.routes import build_router
 from .auth import AuthRepo, bind_auth_repo
-from .db import RunRepo, SessionLocal, TraceRepo, WorkflowRepo, run_migrations
+from .db import (
+    RunRepo,
+    SessionLocal,
+    TraceRepo,
+    UsageRepo,
+    WorkflowRepo,
+    run_migrations,
+)
 from .executor.manager import RunManager
 from .mockapps.routes import router as mockapps_router
 from .ratelimit import limiter
@@ -39,6 +46,7 @@ auth = AuthRepo(SessionLocal)
 bind_auth_repo(auth)
 traces = TraceRepo(SessionLocal)
 workflows = WorkflowRepo(SessionLocal)
+usage = UsageRepo(SessionLocal)
 runs = RunManager(base_url=BASE_URL, run_repo=RunRepo(SessionLocal),
                   headless=os.environ.get("UNDERSTUDY_HEADFUL") != "1")
 
@@ -63,7 +71,7 @@ app.add_middleware(
 
 app.include_router(mockapps_router)
 app.include_router(build_auth_router(auth))
-app.include_router(build_router(traces, workflows, runs))
+app.include_router(build_router(traces, workflows, runs, usage))
 
 
 @app.get("/healthz")
