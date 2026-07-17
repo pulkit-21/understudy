@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, ApiError, TraceSummary, WorkflowSpec } from "../api";
 
 export function TracesPage() {
   const nav = useNavigate();
+  const [sp, setSp] = useSearchParams();
   const [workflows, setWorkflows] = useState<WorkflowSpec[] | null>(null);
   const [traces, setTraces] = useState<TraceSummary[] | null>(null);
   const [inducing, setInducing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [recording, setRecording] = useState<{ id: string; name: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [showHow, setShowHow] = useState(false);
 
   async function load() {
     try {
@@ -22,6 +22,14 @@ export function TracesPage() {
     }
   }
   useEffect(() => { load(); }, []);
+
+  // returning from a browser recording session
+  useEffect(() => {
+    if (sp.get("recorded")) {
+      setNotice("✓ Demonstration recorded. Click “Learn this workflow” below to turn it into a runnable workflow.");
+      setSp({}, { replace: true });
+    }
+  }, [sp, setSp]);
 
   async function induce(traceId: string) {
     setInducing(traceId);
@@ -35,41 +43,11 @@ export function TracesPage() {
     }
   }
 
-  async function startRecording() {
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const r = await api.startRecording("Demonstration");
-      setRecording({ id: r.recording_id, name: r.name });
-      setNotice(
-        "A browser window opened — perform the task there, then click Stop.",
-      );
-    } catch (e) {
-      // On a headless server the demonstration browser can't launch (503).
-      setNotice(
-        e instanceof ApiError && e.status === 503
-          ? "Live recording needs a display, so it runs locally. On this hosted demo, use the seeded demonstration below (or POST a trace to /api/traces)."
-          : (e instanceof ApiError ? String(e.detail) : String(e)),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function stopRecording() {
-    if (!recording) return;
-    setBusy(true);
-    try {
-      await api.stopRecording(recording.id);
-      setRecording(null);
-      setNotice("Recording saved. Induce a workflow from it below.");
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? String(e.detail) : String(e));
-    } finally {
-      setBusy(false);
-    }
+  // Launch the in-browser recorder: go to Vendra with record mode on. The
+  // recorder script (served into the mock apps) captures the demonstration and
+  // POSTs it back, returning here with ?recorded=.
+  function startRecording() {
+    window.location.href = "/portal?record=1";
   }
 
   const firstRun = workflows?.length === 0 && (traces?.length ?? 0) > 0;
@@ -80,16 +58,25 @@ export function TracesPage() {
         <div className="grow">
           <h1 className="page-title" style={{ margin: 0 }}>Workflows</h1>
         </div>
-        {recording ? (
-          <button className="btn danger" disabled={busy} onClick={stopRecording}>
-            ⏺ Stop recording
-          </button>
-        ) : (
-          <button className="btn" disabled={busy} onClick={startRecording}>
-            ⏺ Record a demonstration
-          </button>
-        )}
+        <button className="btn primary" onClick={() => setShowHow(true)}>
+          ⏺ Teach a new workflow
+        </button>
       </div>
+
+      {showHow && (
+        <div className="banner info" style={{ flexDirection: "column", alignItems: "stretch" }}>
+          <div><b>Teach Understudy by doing the task once.</b></div>
+          <ol style={{ margin: "8px 0", paddingLeft: 20 }}>
+            <li>You'll land in <b>Vendra</b> (the invoice portal) with recording on.</li>
+            <li>Open an invoice, read it, switch to <b>LedgerOne</b>, enter the bill, and post it.</li>
+            <li>Click <b>Stop &amp; save</b> in the recorder widget — Understudy learns the procedure.</li>
+          </ol>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn primary" onClick={startRecording}>Start recording in Vendra →</button>
+            <button className="btn" onClick={() => setShowHow(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
       <p className="page-sub">
         A workflow is a procedure Understudy learned by watching one
         demonstration. Open one to review and edit it, or run it on new data.
@@ -100,7 +87,7 @@ export function TracesPage() {
       {firstRun && (
         <div className="banner success">
           👋 Start here: pick the recorded demonstration below and click
-          <strong> Induce workflow</strong> — Understudy will learn the procedure,
+          <strong> Learn this workflow</strong> — Understudy will learn the procedure,
           then you can run it on any invoice.
         </div>
       )}
@@ -163,7 +150,7 @@ export function TracesPage() {
                 disabled={inducing !== null}
                 onClick={() => induce(t.id)}
               >
-                {inducing === t.id ? "Learning…" : "Induce workflow"}
+                {inducing === t.id ? "Learning…" : "Learn this workflow"}
               </button>
             </div>
           ))}

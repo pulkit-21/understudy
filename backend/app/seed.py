@@ -112,6 +112,6 @@ def seed_if_empty(traces, workflows, org_id: str,
     trace.id = "demo-seed-001"
     traces.save(trace, org_id)
     spec = induce_heuristic(trace)
-    spec.id = "wf-demo-invoice"
+    spec.id = f"wf-{trace.id}"  # same scheme as induce, so re-learning updates it
     workflows.save(spec, org_id)
     return True

@@ -160,6 +160,10 @@
     const tag = el.tagName.toLowerCase();
     // typing focus clicks on inputs are noise; the FILL event carries intent
     if (["input", "textarea", "select"].includes(tag)) return;
+    // a submit button fires click THEN submit; keep only the submit so replays
+    // don't post twice
+    const type = (el.getAttribute("type") || "").toLowerCase();
+    if (type === "submit" || (tag === "button" && type !== "button" && el.form)) return;
     emit({ type: "click", target: targetInfo(el), ...base() });
   }, true);
 

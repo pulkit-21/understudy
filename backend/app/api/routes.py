@@ -144,6 +144,12 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
                 enriched_by = "heuristic+llm"
             except InductionError:
                 pass  # keep the deterministic draft
+        # Deterministic id per trace: re-learning the same demonstration updates
+        # the same workflow (bumping its version) instead of piling up duplicates.
+        spec.id = f"wf-{trace_id}"
+        existing = workflows.load(spec.id, user.org_id)
+        if existing:
+            spec.version = existing.version + 1
         workflows.save(spec, user.org_id)
         return {"workflow": spec, "induced_by": enriched_by,
                 "problems": spec.validate_references()}

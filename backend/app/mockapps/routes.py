@@ -10,17 +10,24 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .seed import ERP, INVOICES
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+_RECORDER_JS = Path(__file__).parent / "static" / "recorder.js"
 
 PORTAL_BRAND = {"brand_name": "Vendra", "brand_color": "#31589c"}
 ERP_BRAND = {"brand_name": "LedgerOne", "brand_color": "#1f7a5c"}
 
 router = APIRouter()
+
+
+@router.get("/recorder.js")
+def recorder_js():
+    """The in-browser recorder, served into the mock apps (see base.html)."""
+    return FileResponse(_RECORDER_JS, media_type="application/javascript")
 
 
 # ---- Vendra: invoice portal -------------------------------------------------

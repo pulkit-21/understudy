@@ -752,3 +752,39 @@ future-work item rather than built: the local Playwright recorder + the
 evaluators a workflow to run immediately, and adapting inject.js from a
 Playwright binding to a buffer-and-POST widget carried more risk than value at
 this stage. Called out honestly in the README rather than quietly skipped.
+
+---
+
+## D30 — In-browser recorder: the core "teach by doing" loop, usable in the app
+
+**Decision.** Make teaching a workflow work entirely in the browser. A recorder
+script (`mockapps/static/recorder.js`) is served into the mock apps; clicking
+**"Teach a new workflow"** navigates to Vendra with record mode on. The recorder
+captures the same semantic events as the Playwright recorder but buffers them in
+**sessionStorage** (so they survive navigations between /portal and /erp),
+shows a floating "● Recording · Stop & save" widget, and on stop POSTs the
+assembled trace to `/api/traces` (bearer token read from localStorage,
+same-origin with the SPA), returning to `/workflows?recorded=` ready to learn.
+
+**Why this became the priority.** User testing exposed the real gap: the app
+*felt like a canned demo* because you couldn't do the core action — teach it — in
+the browser (recording previously needed a local headful Playwright display). A
+user even tried to teach it by manually using LedgerOne and nothing connected.
+The reference solutions all let you do their core action live; this closes that
+gap. Verified end-to-end headless: record a demo in-browser → learn (4 live-read
+extracts, invoice_id parameterized, one gated commit) → run on an *unseen*
+invoice → approve → posted.
+
+**Bug found and fixed.** A real submit-button click fires `click` THEN `submit`,
+so the first recordings learned two post-bill steps — on replay the click would
+submit early and the second step would fail. Fixed in both recorders: skip the
+click on submit buttons (the submit event carries the commit intent).
+
+**Also fixed (learning UX).** Re-learning a demonstration used to pile up
+duplicate workflows. Induction now uses a deterministic id per trace
+(`wf-{trace_id}`) and bumps the version, so re-learning *updates* the workflow
+instead of duplicating it; the boot seed uses the same scheme.
+
+**Deferred still:** recording on *real* third-party sites (needs the
+extension); here the recorder works on the same-origin mock apps, which is the
+demonstrable core loop.
