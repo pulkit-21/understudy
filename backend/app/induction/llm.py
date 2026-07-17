@@ -26,13 +26,11 @@ this layer; see decisions.md.)
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import Callable
 
+from ..config import get_settings
 from ..models.trace import Trace
 from ..models.workflow import WorkflowSpec
-
-MODEL = os.environ.get("UNDERSTUDY_MODEL", "claude-opus-4-8")
 
 # USD per input / output token, by model-id prefix. Used to meter induction cost
 # (the only place Understudy calls an LLM — runs are deterministic and free).
@@ -117,16 +115,18 @@ async def enrich_with_llm(
         from anthropic import AsyncAnthropic
     except ImportError as e:
         raise InductionError("anthropic sdk not installed") from e
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    settings = get_settings()
+    if not settings.has_api_key:
         raise InductionError("ANTHROPIC_API_KEY not set")
 
+    model = settings.induction_model
     client = AsyncAnthropic()
     payload = {
         "trace": trace.condensed().model_dump(mode="json"),
         "draft_spec": draft.model_dump(mode="json"),
     }
     msg = await client.messages.create(
-        model=MODEL,
+        model=model,
         max_tokens=4000,
         system=SYSTEM,
         messages=[{"role": "user", "content": json.dumps(payload)}],
@@ -134,10 +134,10 @@ async def enrich_with_llm(
     if on_usage is not None:
         u = msg.usage
         on_usage({
-            "model": MODEL,
+            "model": model,
             "input_tokens": u.input_tokens,
             "output_tokens": u.output_tokens,
-            "cost_usd": cost_usd(MODEL, u.input_tokens, u.output_tokens),
+            "cost_usd": cost_usd(model, u.input_tokens, u.output_tokens),
         })
     text = "".join(b.text for b in msg.content if b.type == "text").strip()
     if text.startswith("```"):

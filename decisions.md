@@ -1008,3 +1008,28 @@ way to make a deep product legible on first contact — it frames *why* each
 surface exists (esp. the safety story: "the agent never approves an irreversible
 step itself"). Built with `getBoundingClientRect` + a fixed overlay rather than a
 tour library to avoid a dependency and keep it themable via existing CSS vars.
+
+---
+
+## D40 — Central typed config + split the agent onto Sonnet
+
+**Decision.** Introduce `app/config.py` — a single `pydantic-settings` `Settings`
+object that replaces every scattered `os.environ.get(...)` (auth secret, data
+dir, DATABASE_URL, base URL, headful, rate-limit, agent-mock, models). It reads
+the environment (prefix `UNDERSTUDY_`) with a `.env` fallback and typed,
+documented, validated defaults; exposed via a cached `get_settings()`.
+
+Two models are now configured **separately**:
+- `agent_model` → **claude-sonnet-5** — the conversational agent is a
+  high-frequency, tool-driving loop where Sonnet is fast and cheap enough.
+- `induction_model` → **claude-opus-4-8** — induction is a rare,
+  correctness-adjacent legibility pass where Opus's extra capability pays off.
+
+**Reasoning.** Config sprawl is a code-quality and ops smell — one typed object
+is discoverable, testable, and documented (`.env.example`, `render.yaml`).
+Splitting the models is the single biggest cost lever: the agent, not induction,
+dominates token volume, and it doesn't need Opus. `.env` auto-loading is a real
+DX win (drop your key in one file). Tests are kept hermetic — the suite defaults
+to the keyless agent and an autouse fixture clears the settings cache per test so
+a developer's real key never triggers a live call. 76 tests green (was 70),
+ruff + mypy clean.

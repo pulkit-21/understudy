@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..auth import User, current_user, user_from_token
+from ..config import get_settings
 from ..db.repositories import (
     ConversationRepo,
     ReplayRepo,
@@ -98,8 +99,7 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
     @limiter.limit("10/minute")
     async def start_recording(request: Request, body: StartRecordingBody,
                               user: User = Depends(current_user)):
-        import os
-        base = os.environ.get("UNDERSTUDY_BASE_URL", "http://localhost:8000")
+        base = get_settings().base_url
         start_url = body.start_url or f"{base}/portal"
         session = RecordingSession(name=body.name, start_url=start_url)
         try:
@@ -369,7 +369,6 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
     async def agent_chat(body: ChatBody, request: Request,
                          user: User = Depends(current_user)):
         from ..agent import AgentTools, run_agent
-        from ..induction.llm import MODEL
 
         # load or start the conversation (persisted history is the source of truth)
         conv = (conversations.get(body.conversation_id, user.org_id)
@@ -383,7 +382,8 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
         tools = AgentTools(workflows, runs, traces, usage, user.org_id)
         result = await run_agent(history, tools)
         if result.get("cost_usd"):
-            usage.record(user.org_id, MODEL, result.get("input_tokens", 0),
+            usage.record(user.org_id, get_settings().agent_model,
+                         result.get("input_tokens", 0),
                          result.get("output_tokens", 0), result["cost_usd"],
                          kind="agent")
 

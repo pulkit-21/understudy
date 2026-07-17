@@ -7,7 +7,6 @@ workflows, or runs.
 """
 from __future__ import annotations
 
-import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -20,12 +19,12 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .config import get_settings
 from .db.models import OrgRow, UserRow
 
 # Dev default is ≥32 bytes (SHA-256 min); override with UNDERSTUDY_JWT_SECRET
 # in any real deployment.
-JWT_SECRET = os.environ.get(
-    "UNDERSTUDY_JWT_SECRET", "understudy-dev-secret-change-me-in-prod-0123456789")
+JWT_SECRET = get_settings().jwt_secret
 JWT_ALG = "HS256"
 TOKEN_TTL = timedelta(days=7)
 

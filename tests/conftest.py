@@ -22,6 +22,10 @@ _TMP = tempfile.mkdtemp(prefix="understudy-test-")
 os.environ.setdefault("UNDERSTUDY_DATA", _TMP)
 os.environ.setdefault("DATABASE_URL", f"sqlite:///{_TMP}/test.db")
 os.environ.setdefault("UNDERSTUDY_RATELIMIT", "0")  # don't throttle across tests
+# Hermetic by default: the whole suite runs the deterministic keyless agent so a
+# developer's real ANTHROPIC_API_KEY (loaded from .env by Settings) never causes
+# a live API call during tests. The LLM loop is exercised only outside CI.
+os.environ.setdefault("UNDERSTUDY_AGENT_MOCK", "1")
 
 import pytest
 
@@ -43,6 +47,16 @@ def _clean_db():
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     yield
+
+
+@pytest.fixture(autouse=True)
+def _fresh_settings():
+    """Settings are process-cached (lru_cache). Clear the cache around each test
+    so a test's monkeypatched env is read fresh and never leaks to the next."""
+    from app.config import get_settings
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture()

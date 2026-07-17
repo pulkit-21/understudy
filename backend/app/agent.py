@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import contextlib
 import json
-import os
 import re
 from typing import Any
 
+from .config import get_settings
 from .induction.heuristic import induce_heuristic
-from .induction.llm import MODEL, InductionError, cost_usd, enrich_with_llm
+from .induction.llm import InductionError, cost_usd, enrich_with_llm
 
 SYSTEM = """\
 You are Understudy's assistant. Understudy learns browser workflows from a
@@ -377,14 +377,15 @@ async def run_agent(history: list[dict], tools: AgentTools) -> dict:
     """Run the tool-use loop for one user turn. Returns the assistant reply plus
     an activity trace of every tool call (name, input, result) for the monitor.
     Falls back to a deterministic keyless agent when no API key is configured."""
-    force_mock = os.environ.get("UNDERSTUDY_AGENT_MOCK") == "1"
-    if force_mock or not os.environ.get("ANTHROPIC_API_KEY"):
+    settings = get_settings()
+    if settings.use_mock_agent:
         return await _mock_agent(history, tools)
     try:
         from anthropic import AsyncAnthropic
     except ImportError:
         return await _mock_agent(history, tools)
 
+    model = settings.agent_model
     client = AsyncAnthropic()
     convo: list[dict] = [{"role": m["role"], "content": m["content"]}
                          for m in history]
@@ -394,7 +395,7 @@ async def run_agent(history: list[dict], tools: AgentTools) -> dict:
 
     for _ in range(6):  # cap tool-use rounds
         msg = await client.messages.create(
-            model=MODEL, max_tokens=1500, system=SYSTEM,
+            model=model, max_tokens=1500, system=SYSTEM,
             tools=schemas,  # type: ignore[arg-type]
             messages=convo,  # type: ignore[arg-type]
         )
@@ -407,7 +408,7 @@ async def run_agent(history: list[dict], tools: AgentTools) -> dict:
         if not tool_uses:
             return {"reply": text or "(no response)", "steps": steps,
                     "cards": _build_cards(tools, steps),
-                    "cost_usd": cost_usd(MODEL, in_tok, out_tok),
+                    "cost_usd": cost_usd(model, in_tok, out_tok),
                     "input_tokens": in_tok, "output_tokens": out_tok}
 
         # record the assistant turn (text + tool_use blocks) verbatim
@@ -423,5 +424,5 @@ async def run_agent(history: list[dict], tools: AgentTools) -> dict:
     return {"reply": "I did several steps but stopped to avoid looping — check "
                      "the activity trace and Runs.", "steps": steps,
             "cards": _build_cards(tools, steps),
-            "cost_usd": cost_usd(MODEL, in_tok, out_tok),
+            "cost_usd": cost_usd(model, in_tok, out_tok),
             "input_tokens": in_tok, "output_tokens": out_tok}

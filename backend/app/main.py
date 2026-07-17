@@ -7,7 +7,6 @@ App layout:
 """
 from __future__ import annotations
 
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -22,6 +21,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from .api.auth_routes import build_auth_router
 from .api.routes import build_router
 from .auth import AuthRepo, bind_auth_repo
+from .config import get_settings
 from .db import (
     ConversationRepo,
     ReplayRepo,
@@ -37,8 +37,9 @@ from .mockapps.routes import router as mockapps_router
 from .ratelimit import limiter
 from .seed import seed_demo_account, seed_if_empty
 
-DATA_DIR = Path(os.environ.get("UNDERSTUDY_DATA", "./data"))
-BASE_URL = os.environ.get("UNDERSTUDY_BASE_URL", "http://localhost:8000")
+settings = get_settings()
+DATA_DIR = settings.data_dir
+BASE_URL = settings.base_url
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 # Provision the schema before anything reads/writes (idempotent).
@@ -52,7 +53,7 @@ usage = UsageRepo(SessionLocal)
 replays = ReplayRepo(SessionLocal)
 conversations = ConversationRepo(SessionLocal)
 runs = RunManager(base_url=BASE_URL, run_repo=RunRepo(SessionLocal),
-                  headless=os.environ.get("UNDERSTUDY_HEADFUL") != "1")
+                  headless=not settings.headful)
 
 
 @asynccontextmanager

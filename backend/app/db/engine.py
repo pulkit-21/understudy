@@ -9,17 +9,16 @@ db package changes when you switch backends.
 """
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-DATA_DIR = Path(os.environ.get("UNDERSTUDY_DATA", "./data"))
+from ..config import get_settings
+
+DATA_DIR = get_settings().data_dir
 
 
 def resolve_url() -> str:
-    url = os.environ.get("DATABASE_URL")
+    url = get_settings().database_url
     if url:
         if url.startswith("postgres://"):  # Render/Heroku dialect fixup
             url = url.replace("postgres://", "postgresql://", 1)

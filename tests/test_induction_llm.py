@@ -74,7 +74,9 @@ def test_induce_falls_back_to_deterministic_draft_without_a_key(
         demo_trace, monkeypatch):
     """No key -> enrichment errors -> the pipeline still returns a correct,
     invoice_id-only spec. The LLM is never load-bearing."""
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    # Empty overrides any key from the environment or a developer's .env
+    # (env vars take precedence over .env in pydantic-settings).
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     spec = asyncio.run(induce(demo_trace))
     assert spec.validate_references() == []
     assert {p.key for p in spec.parameters} == {"invoice_id"}

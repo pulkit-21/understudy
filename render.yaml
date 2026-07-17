@@ -21,6 +21,10 @@ services:
       - key: UNDERSTUDY_JWT_SECRET
         generateValue: true       # Render generates a strong secret; never committed
       - key: ANTHROPIC_API_KEY
-        sync: false               # set in the dashboard; optional (LLM legibility pass)
+        sync: false               # set in the dashboard; optional (LLM + agent)
+      - key: UNDERSTUDY_AGENT_MODEL
+        value: claude-sonnet-5    # conversational agent (fast/cheap tool loop)
+      - key: UNDERSTUDY_INDUCTION_MODEL
+        value: claude-opus-4-8    # one-shot workflow legibility pass
       - key: UNDERSTUDY_DATA
         value: /srv/data
