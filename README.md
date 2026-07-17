@@ -1,17 +1,18 @@
 # Understudy
 
-**Watch a person do a browser task once. Learn the procedure — not the clicks. Run it on new data, with a human approval gate before anything irreversible.**
+**An AI teammate that learns a browser workflow by watching you do it once, then runs it for you — under policy, with a human approval gate before anything irreversible, and a full audit trail.**
 
 Built for the *"learn a user's process by watching them, then do it for them"* problem, scoped to the workflow finance-operations teams actually drown in: moving data between systems that don't talk to each other — an invoice portal (**Vendra**) into an ERP (**LedgerOne**).
 
-> **Live demo:** _<paste your deployed URL here after `render.yaml` deploy>_
-> **Setup:** `make install && make seed && make dev` → http://localhost:8000
-> **Decisions log:** [`decisions.md`](decisions.md) — the real calls, alternatives, and trade-offs (start here to see how I think).
+> **Live demo:** _<paste your deployed URL here after `render.yaml` deploy>_ — click **"Try the live demo"** (no signup).
+> **Setup:** `make install && make dev` → http://localhost:8000 (the app seeds a demo account + workflow on boot).
+> **Decisions log:** [`decisions.md`](decisions.md) — the real calls, alternatives, and trade-offs, D1–D28 (start here to see how I think).
 
 ---
 
 ## Table of contents
 - [The demo in one paragraph](#the-demo-in-one-paragraph)
+- [What it does](#what-it-does)
 - [Why this scoping](#why-this-scoping)
 - [Quick start](#quick-start)
 - [Architecture (HLD)](#architecture-hld)
@@ -22,6 +23,18 @@ Built for the *"learn a user's process by watching them, then do it for them"* p
 - [Scope — what it is and isn't](#scope--what-it-is-and-isnt)
 - [What I'd build next](#what-id-build-next)
 - [Repository map](#repository-map)
+
+## What it does
+
+A multi-tenant full-stack product, not a script:
+
+- **Learn by watching** — record a demonstration; induction produces a legible, editable, parameterized workflow spec (deterministic core + optional LLM legibility pass).
+- **Run on new data** — give it only an `invoice_id`; every other value is read live off the page. Self-healing locators survive page redesigns.
+- **Policy-governed approvals** — per-workflow policy auto-posts small invoices and escalates the rest to a **human approval inbox**; irreversible steps are gated by construction.
+- **Batch & scale** — run a workflow over a list of invoices through a bounded worker pool.
+- **Workflow lifecycle** — draft / published / archived, full version history with one-click rollback, duplicate, delete.
+- **Dashboard & observability** — KPIs (success rate, pending approvals, time saved, LLM cost), a **live screenshot view** of the agent working, per-run audit trail, run retry, and cost metering.
+- **Accounts & tenancy** — bcrypt + JWT auth, org-scoped data isolation, rate limiting. A one-click demo keeps it frictionless to try.
 
 ---
 
@@ -40,14 +53,13 @@ A user demonstrates once: open the **Vendra** portal, open invoice INV-1001, rea
 
 ```bash
 make install     # venv + backend deps + Chromium + build the React panel
-make seed        # seed the demonstration trace + induced workflow
-make dev         # API + UI on http://localhost:8000
+make dev         # API + UI on http://localhost:8000 (seeds a demo account + workflow on boot)
 ```
 
-Optional: `export ANTHROPIC_API_KEY=...` (or a `.env` file) to enable the LLM legibility pass. Without it, induction uses the deterministic heuristic — identical behaviour, plainer step wording.
+Open http://localhost:8000 and click **"Try the live demo"** (or register your own workspace). Optional: `export ANTHROPIC_API_KEY=...` (or a `.env` file) to enable the LLM legibility pass. Without it, induction uses the deterministic heuristic — identical behaviour, plainer step wording.
 
 ```bash
-make test        # 41 tests, incl. the real-Chromium e2e + robustness suite
+make test        # 59 tests, incl. the real-Chromium e2e + robustness/policy/tenancy suites
 make ci          # ruff + mypy + tests (what CI runs)
 make eval        # success-rate harness across all invoices + a failure case
 docker build -t understudy . && docker run -p 8000:8000 understudy
@@ -76,11 +88,13 @@ One FastAPI service hosts everything — the API, the built React panel (same-or
                         └──────────────────────────┬────────────────┘
                                                     │  Run + RunEvents (SSE, persisted)
                                                     ▼
-   FastAPI  ──  /api (traces · workflows · runs +SSE)  ·  React panel  ·  /portal /erp
+   auth (bcrypt+JWT, org-scoped)  ·  approval policy engine  ·  bounded worker pool
+   FastAPI  ──  /api (auth · traces · workflows · runs · batch · dashboard · usage +SSE)
+   React panel (dashboard · spec editor · runs · approval inbox · settings)  ·  /portal /erp
    Persistence ──  SQLAlchemy + Alembic  (SQLite default · Postgres via DATABASE_URL)
 ```
 
-**Request flow — learn → run:** record (or seed) a trace → `POST /traces/{id}/induce` produces a `WorkflowSpec` → review/edit it in the panel (`PUT` validates it) → `POST /workflows/{id}/runs` launches a headless Chromium that walks the spec, streaming its audit log over SSE → it pauses at the commit gate → a human approves → the bill posts and the run is persisted to history.
+Every data endpoint is behind auth and scoped to the caller's org. **Request flow — learn → run:** record (or seed) a trace → `POST /traces/{id}/induce` produces a `WorkflowSpec` → review/edit it in the panel (`PUT` validates it, `POST /status`, versions/rollback) → `POST /workflows/{id}/runs` (or `/batch`) launches a headless Chromium through the worker pool that walks the spec, streaming its audit log + live screenshots over SSE → at the commit gate the **approval policy** either auto-approves (small amounts, logged as `policy`) or escalates to the human inbox → the bill posts and the run is persisted to history.
 
 ## Low-level design (LLD)
 
@@ -90,9 +104,10 @@ One FastAPI service hosts everything — the API, the built React panel (same-or
 | `models/` | The IR: `Trace` (semantic events) + `WorkflowSpec` (steps, params, `validate_references`). Fully typed; start reading here. |
 | `recorder/` | `inject.js` capture script (accessible-name computation, input-collapse to FILL, passwords never recorded) + the Playwright demonstration session. |
 | `induction/` | `heuristic.py` (deterministic baseline) + `llm.py` (enrichment behind hard safety invariants, falls back on any failure). |
-| `executor/` | `Runner` (walks the spec, resolves templates, hard-pauses at gates, emits audit events), `PlaywrightSink` (self-healing locator chain), `RunManager` (one Chromium per run, SSE queues, persistence). |
-| `db/` | SQLAlchemy engine, ORM rows (document-per-row: JSON payload + indexed columns), repositories (`save/load/list`), Alembic migrations run on boot. |
-| `api/` | REST + SSE. Request bodies are module-scope (a pydantic-v2 gotcha, see D17). |
+| `executor/` | `Runner` (walks the spec, resolves templates, consults the approval **policy** at gates, streams live frames, emits audit events), `PlaywrightSink` (self-healing locator chain), `RunManager` (bounded worker pool, SSE queues, org-scoped persistence). |
+| `auth.py` | bcrypt hashing, HS256 JWTs, `current_user` dependency, `AuthRepo`. `org_id` is the tenancy key. |
+| `db/` | SQLAlchemy engine, ORM rows (document-per-row: JSON payload + indexed columns), **org-scoped** repositories, workflow version snapshots, usage metering, Alembic migrations run on boot. |
+| `api/` | REST + SSE, all behind auth: auth, traces, induce, workflows (+lifecycle/versions/batch), runs (+approve/reject/retry), dashboard, usage. Request bodies are module-scope (a pydantic-v2 gotcha, see D17). |
 | `mockapps/` | Vendra + LedgerOne — deterministic, stable test-ids, `?resilience=drop-testids` variant for the self-healing test. |
 
 **The workflow IR** — a step's `value` may be a literal, a `{{run_input}}`, or a `{{extract.key}}` (data read live during the run). `validate_references()` catches the three bugs that silently break replays: an undeclared parameter, an `extract` referenced before it's produced, and a `commit` step without a gate.
@@ -103,16 +118,18 @@ One FastAPI service hosts everything — the API, the built React panel (same-or
 
 ## Proof it works
 
-**41 tests** (`make test`) — meaningful, targeting the properties that matter, not coverage:
+**59 tests** (`make test`) — meaningful, targeting the properties that matter, not coverage:
 
 | Suite | What it locks down |
 |---|---|
 | `test_e2e` | Real headless Chromium learns from INV-1001 and posts **INV-1005** (unseen), gate held, ERP row asserted field-for-field. This one test *is* the product. |
 | `test_executor` | Gate hard-pauses; rejection stops before commit; `{{extract}}` feeds later fills; an unresolved ref fails the run instead of typing `{{amount}}`. |
+| `test_policy` | Auto-approves below threshold (actor=policy); escalates at/above; unparseable amount → human; default always asks; **policy can't remove a commit gate**; awaiting state is persisted (inbox correctness). |
 | `test_robustness` | Self-heals when test-ids are removed; unknown invoice fails safely (no post, never gates); mid-run throw settles FAILED without committing; concurrent runs isolated; SSE replays full history to a late subscriber. |
+| `test_auth` / `test_batch` | Register/login/me; **HTTP tenant isolation** (org B can't see org A's data); batch fans out one governed run per value; the worker pool bounds concurrency. |
 | `test_induction` / `_llm` | Parameterizes to `invoice_id` only; no demo literals leak into steps; enrichment never removes a gate or invents selectors. |
-| `test_persistence` | Repos round-trip faithfully; run history survives a server restart. |
-| `test_mockapps` / `test_api` | Contract + error boundaries; PUT refuses an ungated commit (422). |
+| `test_persistence` | Org-scoped repos round-trip faithfully; version history + rollback; run history survives a server restart. |
+| `test_mockapps` / `test_api` | Auth-gating; PUT refuses an ungated commit (422); lifecycle status/duplicate/delete; versions + rollback. |
 
 **Eval harness** (`make eval`) — runs the learned workflow across all seeded invoices, checking each posted bill against the portal's source of truth, plus a failure-mode case:
 
@@ -134,38 +151,40 @@ CI (`.github/workflows/ci.yml`) gates every push on ruff + mypy + pytest (with a
 
 Single container: a multi-stage `Dockerfile` builds the React panel (node) then serves API + panel + mock apps from the Playwright Python image (Chromium + system deps preinstalled — avoids the usual headless-Chromium failures on PaaS). The app **seeds itself on boot** (offline, no key needed) so a fresh deploy is demoable immediately.
 
-**Render (one click):** push to GitHub → New → Blueprint → point at the repo (`render.yaml`). Optionally set `ANTHROPIC_API_KEY`. SQLite lives on the container's ephemeral disk (resets on redeploy — fine for a demo); for durability, mount a Render Disk at `/srv/data` or set `DATABASE_URL` to a managed Postgres.
+**Render (one click):** push to GitHub → New → Blueprint → point at the repo (`render.yaml`). It generates `UNDERSTUDY_JWT_SECRET`; optionally set `ANTHROPIC_API_KEY`. SQLite lives on the container's ephemeral disk (resets on redeploy — fine for a demo); for durability, mount a Render Disk at `/srv/data` or set `DATABASE_URL` to a managed Postgres.
 
 ## Scope — what it is and isn't
 
-**Is:** a real, tested learn-by-demonstration loop with a legible editable IR, deterministic self-healing replay, non-bypassable approval gates, an audit trail, persistence, and a hosted demo.
+**Is:** a multi-tenant full-stack product — auth + org isolation, a legible editable IR, deterministic self-healing replay, policy-governed non-bypassable approval gates with a human inbox, batch runs on a bounded pool, a dashboard with live view + cost metering, workflow versioning, an audit trail, real persistence, CI, and a hosted demo.
 
-**Deliberately out of scope** (with reasons in [`decisions.md`](decisions.md)): real third-party sites (auth, 2FA, CAPTCHA), credential handling, multi-site generalization from a single trace, and a Chrome-extension recorder (the capture script is extension-portable, but store review doesn't fit the timeline; the Playwright demonstration browser is the primary recorder). `contenteditable`, drag-drop, and file uploads in the recorder are known gaps.
+**Deliberately out of scope** (with reasons in [`decisions.md`](decisions.md)): real third-party sites (SSO, 2FA, CAPTCHA), credential handling, multi-site generalization from a single trace, and a Chrome-extension recorder (the capture script is extension-portable, but store review doesn't fit the timeline; the Playwright demonstration browser is the primary recorder). `contenteditable`, drag-drop, and file uploads in the recorder are known gaps.
 
 ## What I'd build next
 
+- **Deployed in-page recorder** — serve `inject.js` into the mock apps (`?record=1`) so a user can record on the hosted demo without a local display.
 - **Multi-trace diffing** to infer parameters automatically (record the same task on two invoices → whatever differs is a parameter).
-- **LLM locator fallback** as a fourth strategy when all three deterministic locators miss — wired behind the existing "healed" reporting so the happy path stays deterministic and auditable.
-- **Chrome-extension recorder** (unpacked) so demonstrations can happen on real internal tools, not just the mock apps.
-- **Durable multi-tenant persistence** + a run queue (one Chromium per run is the current single-node boundary).
+- **Richer approval policy** — per-vendor / per-GL rules and a learning loop (repeated manual approvals become a suggested rule), keeping the tighten-only safety property.
+- **LLM locator fallback** as a fourth strategy when all three deterministic locators miss — behind the existing "healed" reporting.
+- **Durable, scaled execution** — managed Postgres by default + a persistent run queue (the bounded pool is the current single-node boundary).
 
 ## Repository map
 
 ```
-backend/app/models/       Trace + WorkflowSpec (the IR — start here)
+backend/app/models/       Trace + WorkflowSpec + ApprovalPolicy (the IR — start here)
 backend/app/recorder/     inject.js capture script + Playwright session
-backend/app/induction/    heuristic baseline + LLM enrichment
-backend/app/executor/     Runner, approval gates, self-healing PlaywrightSink, RunManager
-backend/app/db/           engine, ORM rows, repositories, migrations
+backend/app/induction/    heuristic baseline + LLM enrichment (+ cost pricing)
+backend/app/executor/     Runner (policy gates, live frames), self-healing PlaywrightSink, RunManager (worker pool)
+backend/app/auth.py       bcrypt + JWT + current_user + AuthRepo (org = tenancy key)
+backend/app/db/           engine, ORM rows, org-scoped repos, versions, usage, migrations
 backend/app/mockapps/     Vendra + LedgerOne (deterministic demo stage)
-backend/app/api/          REST + SSE
+backend/app/api/          REST + SSE (auth, workflows/lifecycle, runs/batch, dashboard, usage)
 backend/alembic/          migrations
-frontend/src/             React control panel (Vite + TS): workflows, spec editor, run view, runs history, trace view
-tests/                    contract · induction · executor · persistence · robustness · e2e
+frontend/src/             React panel: dashboard, spec editor, run + live view, runs, approvals inbox, trace view, settings, login
+tests/                    e2e · executor · policy · robustness · auth · batch · induction · persistence · api · mockapps
 scripts/                  seed_demo.py, eval.py
-decisions.md              the running decision log (D1–D25)
+decisions.md              the running decision log (D1–D28)
 ```
 
 ## Tech stack
 
-Python 3.11+ · FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 · Playwright (Chromium) · Anthropic (Claude, enrichment only) · React 18 + Vite + TypeScript · ruff + mypy + pytest · Docker.
+Python 3.11+ · FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 · bcrypt + PyJWT + slowapi · Playwright (Chromium) · Anthropic (Claude, enrichment only) · React 18 + Vite + TypeScript · ruff + mypy + pytest · Docker.

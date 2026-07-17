@@ -11,6 +11,7 @@ import { RunPage } from "./pages/RunPage";
 import { RunsPage } from "./pages/RunsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import "./styles.css";
 
 function Shell() {
@@ -43,7 +44,7 @@ function Shell() {
         <span className="spacer" />
         <a className="ext" href="/portal" target="_blank" rel="noreferrer">Vendra ↗</a>
         <a className="ext" href="/erp" target="_blank" rel="noreferrer">LedgerOne ↗</a>
-        <span className="whoami">{user?.email}</span>
+        <NavLink to="/settings" className="whoami">{user?.email}</NavLink>
         <a className="ext" onClick={logout} style={{ cursor: "pointer" }}>Sign out</a>
       </nav>
       <Routes>
@@ -54,6 +55,7 @@ function Shell() {
         <Route path="/runs" element={<RunsPage />} />
         <Route path="/runs/:id" element={<RunPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </>
   );

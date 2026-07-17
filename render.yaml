@@ -18,7 +18,9 @@ services:
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
+      - key: UNDERSTUDY_JWT_SECRET
+        generateValue: true       # Render generates a strong secret; never committed
       - key: ANTHROPIC_API_KEY
-        sync: false               # set in the dashboard; optional
+        sync: false               # set in the dashboard; optional (LLM legibility pass)
       - key: UNDERSTUDY_DATA
         value: /srv/data

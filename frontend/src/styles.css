@@ -205,6 +205,11 @@ a:hover { text-decoration: underline; }
 
 /* ---- auth ---- */
 .nav .whoami { color: var(--faint); font-size: 13px; }
+.nav .whoami.active { color: var(--text); }
+.kv { display: flex; justify-content: space-between; padding: 8px 0;
+  border-bottom: 1px solid var(--border); font-size: 14px; }
+.kv:last-of-type { border-bottom: none; }
+.kv span { color: var(--muted); }
 .navbadge { display: inline-grid; place-items: center; min-width: 18px; height: 18px;
   padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--warn);
   color: #fff; font-size: 11px; font-weight: 700; vertical-align: middle; }
