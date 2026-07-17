@@ -125,8 +125,21 @@ def upgrade() -> None:
     )
     op.create_index("ix_replays_org_id", "replays", ["org_id"])
 
+    op.create_table(
+        "conversations",
+        sa.Column("id", sa.String(), primary_key=True),
+        sa.Column("org_id", sa.String(), nullable=False),
+        sa.Column("title", sa.String(), nullable=False, server_default="New chat"),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("messages", sa.JSON(), nullable=False),
+    )
+    op.create_index("ix_conversations_org_id", "conversations", ["org_id"])
+    op.create_index("ix_conversations_updated_at", "conversations", ["updated_at"])
+
 
 def downgrade() -> None:
+    op.drop_table("conversations")
     op.drop_table("replays")
     op.drop_table("usage")
     op.drop_table("runs")

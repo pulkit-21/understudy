@@ -3,6 +3,7 @@ from .engine import SessionLocal, engine, resolve_url
 from .migrate import run_migrations
 from .models import (
     Base,
+    ConversationRow,
     OrgRow,
     ReplayRow,
     RunRow,
@@ -13,6 +14,7 @@ from .models import (
     WorkflowVersionRow,
 )
 from .repositories import (
+    ConversationRepo,
     ReplayRepo,
     RunRepo,
     TraceRepo,
@@ -22,6 +24,8 @@ from .repositories import (
 
 __all__ = [
     "Base",
+    "ConversationRepo",
+    "ConversationRow",
     "OrgRow",
     "ReplayRepo",
     "ReplayRow",

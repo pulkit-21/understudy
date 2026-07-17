@@ -294,6 +294,35 @@ textarea.input { resize: vertical; }
 .agent-card .ac-ic { width: 30px; height: 30px; border-radius: 8px; flex: none;
   background: var(--primary-wash); color: var(--primary); display: grid; place-items: center; }
 
+/* ---- assistant two-column ---- */
+.assistant-layout { display: flex; height: 100vh; }
+.thread-list { width: 244px; flex: none; border-right: 1px solid var(--border);
+  background: var(--surface); padding: 14px 10px; display: flex; flex-direction: column;
+  gap: 8px; overflow: hidden; }
+.threads { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; overflow-y: auto; }
+.thread-item { display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+  border-radius: 8px; cursor: pointer; font-size: 13.5px; color: var(--text); }
+.thread-item:hover { background: var(--surface-2); }
+.thread-item.active { background: var(--primary-wash); color: var(--primary-ink); }
+.thread-item .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-del { border: none; background: transparent; color: var(--faint); cursor: pointer;
+  opacity: 0; padding: 2px; display: grid; place-items: center; }
+.thread-item:hover .thread-del { opacity: 1; }
+.chat-pane { flex: 1; display: flex; flex-direction: column; min-width: 0;
+  max-width: 880px; margin: 0 auto; width: 100%; padding: 0 28px; }
+.chat-head { padding: 20px 0 10px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.chat-thread { flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+  gap: 14px; padding: 18px 0; }
+
+/* ---- markdown in chat ---- */
+.md p { margin: 0 0 8px; } .md p:last-child { margin: 0; }
+.md ul, .md ol { margin: 6px 0; padding-left: 20px; } .md li { margin: 2px 0; }
+.md code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; }
+.md strong { font-weight: 650; } .md a { color: var(--primary); }
+.md h1, .md h2, .md h3 { font-size: 15px; margin: 10px 0 4px; }
+
 @media (max-width: 720px) {
   .sidebar { position: fixed; z-index: 20; transform: translateX(-100%); }
   .container { padding: 22px 18px 80px; }

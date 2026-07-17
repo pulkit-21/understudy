@@ -16,7 +16,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..auth import User, current_user, user_from_token
-from ..db.repositories import ReplayRepo, TraceRepo, UsageRepo, WorkflowRepo
+from ..db.repositories import (
+    ConversationRepo,
+    ReplayRepo,
+    TraceRepo,
+    UsageRepo,
+    WorkflowRepo,
+)
 from ..executor.manager import RunManager
 from ..induction.heuristic import induce_heuristic
 from ..induction.llm import InductionError, enrich_with_llm
@@ -59,18 +65,15 @@ class ReplayBody(BaseModel):
     events: list  # rrweb events
 
 
-class ChatMessage(BaseModel):
-    role: str      # "user" | "assistant"
-    content: str
-
-
 class ChatBody(BaseModel):
-    messages: list[ChatMessage]
+    message: str
+    conversation_id: str | None = None
 
 
 def build_router(traces: TraceRepo, workflows: WorkflowRepo,
                  runs: RunManager, usage: UsageRepo,
-                 replays: ReplayRepo) -> APIRouter:
+                 replays: ReplayRepo,
+                 conversations: ConversationRepo) -> APIRouter:
     r = APIRouter(prefix="/api")
 
     # ---- traces -----------------------------------------------------------
@@ -340,21 +343,53 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
 
     # ---- conversational agent -----------------------------------------------
 
+    @r.get("/agent/conversations")
+    def list_conversations(user: User = Depends(current_user)):
+        return conversations.list(user.org_id)
+
+    @r.get("/agent/conversations/{conv_id}")
+    def get_conversation(conv_id: str, user: User = Depends(current_user)):
+        conv = conversations.get(conv_id, user.org_id)
+        if conv is None:
+            raise HTTPException(404)
+        return {"id": conv.id, "title": conv.title, "messages": conv.messages}
+
+    @r.delete("/agent/conversations/{conv_id}", status_code=204)
+    def delete_conversation(conv_id: str, user: User = Depends(current_user)):
+        if not conversations.delete(conv_id, user.org_id):
+            raise HTTPException(404)
+
     @r.post("/agent/chat")
     @limiter.limit("20/minute")
     async def agent_chat(body: ChatBody, request: Request,
                          user: User = Depends(current_user)):
         from ..agent import AgentTools, run_agent
         from ..induction.llm import MODEL
+
+        # load or start the conversation (persisted history is the source of truth)
+        conv = (conversations.get(body.conversation_id, user.org_id)
+                if body.conversation_id else None)
+        if conv is None:
+            conv = conversations.create(user.org_id, title=body.message)
+        history = [{"role": m["role"], "content": m["content"]}
+                   for m in conv.messages]
+        history.append({"role": "user", "content": body.message})
+
         tools = AgentTools(workflows, runs, traces, usage, user.org_id)
-        result = await run_agent(
-            [{"role": m.role, "content": m.content} for m in body.messages], tools)
+        result = await run_agent(history, tools)
         if result.get("cost_usd"):
             usage.record(user.org_id, MODEL, result.get("input_tokens", 0),
                          result.get("output_tokens", 0), result["cost_usd"],
                          kind="agent")
+
+        conv.messages.append({"role": "user", "content": body.message})
+        conv.messages.append({"role": "assistant", "content": result["reply"],
+                              "cards": result.get("cards", []),
+                              "steps": result["steps"]})
+        conversations.save_messages(conv.id, user.org_id, conv.messages)
         return {"reply": result["reply"], "steps": result["steps"],
-                "cards": result.get("cards", [])}
+                "cards": result.get("cards", []),
+                "conversation_id": conv.id, "title": conv.title}
 
     @r.post("/runs/{run_id}/retry")
     @limiter.limit("30/minute")

@@ -110,6 +110,13 @@ export interface AgentStep {
   result: Record<string, unknown>;
 }
 
+export interface ChatMsg {
+  role: "user" | "assistant";
+  content: string;
+  cards?: AgentCard[];
+  steps?: AgentStep[];
+}
+
 export interface AgentCard {
   type: "run" | "workflow";
   id: string;
@@ -296,10 +303,19 @@ export const api = {
     req<{ ok: boolean }>(`/api/runs/${id}/reject`, { method: "POST" }),
   usage: () => req<{ total_usd: number; entries: UsageEntry[] }>("/api/usage"),
 
-  chat: (messages: { role: string; content: string }[]) =>
-    req<{ reply: string; steps: AgentStep[]; cards: AgentCard[] }>("/api/agent/chat", {
-      method: "POST", body: JSON.stringify({ messages }),
+  chat: (message: string, conversation_id?: string) =>
+    req<{ reply: string; steps: AgentStep[]; cards: AgentCard[];
+          conversation_id: string; title: string }>("/api/agent/chat", {
+      method: "POST", body: JSON.stringify({ message, conversation_id }),
     }),
+  listConversations: () =>
+    req<{ id: string; title: string; updated_at: string; messages: number }[]>(
+      "/api/agent/conversations"),
+  getConversation: (id: string) =>
+    req<{ id: string; title: string; messages: ChatMsg[] }>(
+      `/api/agent/conversations/${id}`),
+  deleteConversation: (id: string) =>
+    req<void>(`/api/agent/conversations/${id}`, { method: "DELETE" }),
 
   // token in the query because EventSource can't send an auth header
   runEventsUrl: (id: string) =>

@@ -80,6 +80,18 @@ class WorkflowVersionRow(Base):
     payload: Mapped[dict] = mapped_column(JSON)
 
 
+class ConversationRow(Base):
+    """A persisted Assistant chat thread (messages incl. cards/steps as JSON)."""
+    __tablename__ = "conversations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    org_id: Mapped[str] = mapped_column(String, index=True)
+    title: Mapped[str] = mapped_column(String, default="New chat")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    messages: Mapped[list] = mapped_column(JSON, default=list)
+
+
 class ReplayRow(Base):
     """rrweb session-replay events for a recorded demonstration — the data that
     powers the Sentry-style visual playback. Kept out of the trace payload

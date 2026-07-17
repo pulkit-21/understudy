@@ -106,6 +106,31 @@ async def test_keyless_mock_agent_works_offline(demo_trace, org_id, monkeypatch)
     assert any(c["type"] == "run" for c in r2["cards"])  # actionable card returned
 
 
+def test_chat_persists_conversation_history(authed_client, demo_trace, monkeypatch):
+    """A chat turn creates/updates a persisted conversation; it survives reload."""
+    monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
+    client, org_id = authed_client
+    WorkflowRepo(SessionLocal).save(induce_heuristic(demo_trace), org_id)
+
+    r = client.post("/api/agent/chat", json={"message": "what workflows do I have?"})
+    assert r.status_code == 200
+    cid = r.json()["conversation_id"]
+
+    convs = client.get("/api/agent/conversations").json()
+    assert any(c["id"] == cid for c in convs)
+
+    full = client.get(f"/api/agent/conversations/{cid}").json()
+    assert [m["role"] for m in full["messages"]] == ["user", "assistant"]
+    assert "workflow" in full["messages"][1]["content"].lower()
+
+    # a follow-up appends to the same conversation
+    client.post("/api/agent/chat", json={"message": "thanks", "conversation_id": cid})
+    assert len(client.get(f"/api/agent/conversations/{cid}").json()["messages"]) == 4
+
+    client.delete(f"/api/agent/conversations/{cid}")
+    assert client.get("/api/agent/conversations").json() == []
+
+
 @pytest.mark.asyncio
 async def test_unknown_tool_is_handled():
     res = await _tools("org-x").dispatch("delete_everything", {})

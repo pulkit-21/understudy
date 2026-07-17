@@ -16,6 +16,7 @@ from ..executor.runner import Run
 from ..models.trace import Trace
 from ..models.workflow import WorkflowSpec
 from .models import (
+    ConversationRow,
     ReplayRow,
     RunRow,
     TraceRow,
@@ -274,3 +275,57 @@ class ReplayRepo:
         with self._sf() as s:
             row = s.get(ReplayRow, trace_id)
             return row is not None and row.org_id == org_id
+
+
+class ConversationRepo:
+    def __init__(self, session_factory: SessionFactory):
+        self._sf = session_factory
+
+    def create(self, org_id: str, title: str) -> ConversationRow:
+        from uuid import uuid4
+        with self._sf() as s:
+            now = _now()
+            row = ConversationRow(id="conv-" + uuid4().hex[:10], org_id=org_id,
+                                  title=title[:80] or "New chat", created_at=now,
+                                  updated_at=now, messages=[])
+            s.add(row)
+            s.commit()
+            s.refresh(row)
+            s.expunge(row)
+            return row
+
+    def get(self, conv_id: str, org_id: str) -> ConversationRow | None:
+        with self._sf() as s:
+            row = s.get(ConversationRow, conv_id)
+            if row is None or row.org_id != org_id:
+                return None
+            s.expunge(row)
+            return row
+
+    def save_messages(self, conv_id: str, org_id: str, messages: list) -> None:
+        with self._sf() as s:
+            row = s.get(ConversationRow, conv_id)
+            if row is None or row.org_id != org_id:
+                return
+            row.messages = messages
+            row.updated_at = _now()
+            s.add(row)
+            s.commit()
+
+    def list(self, org_id: str, limit: int = 50) -> list[dict]:
+        with self._sf() as s:
+            rows = s.execute(
+                select(ConversationRow).where(ConversationRow.org_id == org_id)
+                .order_by(ConversationRow.updated_at.desc()).limit(limit)
+            ).scalars().all()
+            return [{"id": r.id, "title": r.title, "updated_at": r.updated_at,
+                     "messages": len(r.messages)} for r in rows]
+
+    def delete(self, conv_id: str, org_id: str) -> bool:
+        with self._sf() as s:
+            row = s.get(ConversationRow, conv_id)
+            if row is None or row.org_id != org_id:
+                return False
+            s.delete(row)
+            s.commit()
+            return True
