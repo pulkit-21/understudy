@@ -58,4 +58,9 @@ def build_auth_router(auth: AuthRepo) -> APIRouter:
     def me(user: User = Depends(current_user)):
         return user
 
+    @r.get("/team")
+    def team(user: User = Depends(current_user)):
+        members = auth.list_org(user.org_id)
+        return {"members": members, "me": user.id}
+
     return r

@@ -122,6 +122,15 @@ class AuthRepo:
             return (User(id=row.id, email=row.email, name=row.name,
                          org_id=row.org_id) if row else None)
 
+    def list_org(self, org_id: str) -> list[dict]:
+        with self._sf() as s:
+            rows = s.execute(
+                select(UserRow).where(UserRow.org_id == org_id)
+                .order_by(UserRow.created_at)
+            ).scalars().all()
+            return [{"id": r.id, "email": r.email, "name": r.name,
+                     "created_at": r.created_at} for r in rows]
+
 
 # ---- FastAPI dependency ------------------------------------------------------
 

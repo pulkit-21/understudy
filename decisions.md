@@ -970,3 +970,24 @@ demonstrate breadth the single invoice task couldn't:
 human approves → the vendor lands in the master with all four fields. Tests:
 multi-param induction (4 params, no extracts, gated) + multi-param batch-with-
 defaults. Both seed on boot alongside the invoice workflow.
+
+---
+
+## D38 — Premium/production pass: split login, dark mode, team, global audit
+
+**Decision.** After comparing to invoice-copilot's deployed app, elevate the UI to
+that bar:
+- **Marketing split-screen login** — dark left panel (value props + trust chips),
+  clean right form + one-click demo.
+- **Dark mode** — full dark palette via `:root[data-theme=dark]` token overrides
+  + a sidebar toggle (persisted in localStorage, applied before first paint).
+- **Team page** — lists the org's members (`/api/auth/team`); invite is stubbed
+  (shared-org demo) and labelled as such.
+- **Global Audit log** — `/api/audit` flattens every run's events into one
+  org-wide, filterable feed (actor · kind · detail · run), newest first.
+- Richer sidebar (subtitle, role line) + Audit/Team nav.
+
+**Reasoning.** The functionality was already deep; the product *finish* was the
+gap the user (rightly) flagged. Dark mode via CSS variables meant one palette
+block themed the entire app. The audit feed reuses the per-run event log (no new
+storage) — the same tamper-evident-style trail, surfaced org-wide.

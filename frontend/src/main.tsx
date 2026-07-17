@@ -13,8 +13,31 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AssistantPage } from "./pages/AssistantPage";
+import { TeamPage } from "./pages/TeamPage";
+import { AuditPage } from "./pages/AuditPage";
 import { Icon } from "./Icon";
 import "./styles.css";
+
+// apply saved theme before first paint
+const savedTheme = localStorage.getItem("understudy_theme") || "light";
+document.documentElement.dataset.theme = savedTheme;
+
+function ThemeToggle() {
+  const [dark, setDark] = useState(
+    document.documentElement.dataset.theme === "dark");
+  function toggle() {
+    const next = dark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("understudy_theme", next);
+    setDark(!dark);
+  }
+  return (
+    <button className="theme-toggle" onClick={toggle}>
+      <Icon name={dark ? "sun" : "moon"} size={17} />
+      <span>{dark ? "Light mode" : "Dark mode"}</span>
+    </button>
+  );
+}
 
 function NavItem({ to, icon, label, badge, end }: {
   to: string; icon: string; label: string; badge?: number; end?: boolean;
@@ -47,12 +70,17 @@ function Shell() {
   return (
     <div className="app-layout">
       <aside className="sidebar">
-        <div className="brand"><span className="logo">U</span> Understudy</div>
+        <div className="brand">
+          <span className="logo">U</span>
+          <span>Understudy<small className="brand-sub">workflow automation</small></span>
+        </div>
         <NavItem to="/" end icon="dashboard" label="Dashboard" />
         <NavItem to="/assistant" icon="chat" label="Assistant" />
         <NavItem to="/workflows" icon="workflows" label="Workflows" />
         <NavItem to="/runs" icon="runs" label="Runs" />
         <NavItem to="/approvals" icon="approvals" label="Approvals" badge={pending} />
+        <NavItem to="/audit" icon="book" label="Audit log" />
+        <NavItem to="/team" icon="team" label="Team" />
         <NavItem to="/settings" icon="settings" label="Settings" />
 
         <div className="sb-section">Mock apps</div>
@@ -67,8 +95,9 @@ function Shell() {
         </a>
 
         <div className="spacer" />
+        <ThemeToggle />
         <div className="sb-user">
-          <div className="who">{user?.email}</div>
+          <div className="who">{user?.email}<br /><span style={{ opacity: .7 }}>admin · workspace</span></div>
           <a className="navitem" onClick={logout} style={{ cursor: "pointer" }}>
             <Icon name="logout" /><span>Sign out</span>
           </a>
@@ -84,6 +113,8 @@ function Shell() {
           <Route path="/runs/:id" element={<RunPage />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
           <Route path="/assistant" element={<AssistantPage />} />
+          <Route path="/audit" element={<AuditPage />} />
+          <Route path="/team" element={<TeamPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </div>

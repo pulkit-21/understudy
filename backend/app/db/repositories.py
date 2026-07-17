@@ -199,6 +199,22 @@ class RunRepo:
             ).all()
             return {status: n for status, n in rows}
 
+    def recent_events(self, org_id: str, limit: int = 120) -> Sequence[dict]:
+        """Flatten recent runs' audit events into one org-wide feed."""
+        with self._sf() as s:
+            rows = s.execute(
+                select(RunRow).where(RunRow.org_id == org_id)
+                .order_by(RunRow.created_at.desc()).limit(60)
+            ).scalars().all()
+            out: list[dict] = []
+            for r in rows:
+                for e in r.payload.get("events", []):
+                    out.append({"run_id": r.id, "workflow_id": r.workflow_id,
+                                "ts": e.get("ts"), "actor": e.get("actor"),
+                                "kind": e.get("kind"), "detail": e.get("detail")})
+            out.sort(key=lambda e: e.get("ts") or "", reverse=True)
+            return out[:limit]
+
     def total_cost(self, org_id: str) -> float:
         from sqlalchemy import func
         with self._sf() as s:

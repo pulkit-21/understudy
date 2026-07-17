@@ -336,6 +336,11 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
             "recent": runs.list(org, limit=6),
         }
 
+    @r.get("/audit")
+    def audit_log(user: User = Depends(current_user)):
+        """Org-wide audit feed — every run event, newest first."""
+        return {"events": runs.repo.recent_events(user.org_id)}
+
     @r.get("/usage")
     def usage_log(user: User = Depends(current_user)):
         return {"total_usd": round(usage.total(user.org_id), 4),

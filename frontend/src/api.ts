@@ -127,6 +127,15 @@ export interface AgentCard {
   name?: string;
 }
 
+export interface TeamMember {
+  id: string; email: string; name: string; created_at: string;
+}
+
+export interface AuditEvent {
+  run_id: string; workflow_id: string; ts: string;
+  actor: string; kind: string; detail: string;
+}
+
 export interface UsageEntry {
   kind: string;
   model: string;
@@ -302,6 +311,8 @@ export const api = {
   reject: (id: string) =>
     req<{ ok: boolean }>(`/api/runs/${id}/reject`, { method: "POST" }),
   usage: () => req<{ total_usd: number; entries: UsageEntry[] }>("/api/usage"),
+  team: () => req<{ members: TeamMember[]; me: string }>("/api/auth/team"),
+  auditLog: () => req<{ events: AuditEvent[] }>("/api/audit"),
 
   chat: (message: string, conversation_id?: string) =>
     req<{ reply: string; steps: AgentStep[]; cards: AgentCard[];
