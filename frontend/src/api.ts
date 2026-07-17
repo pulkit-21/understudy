@@ -104,6 +104,12 @@ export interface WorkflowVersion {
   steps: number;
 }
 
+export interface AgentStep {
+  tool: string;
+  input: Record<string, unknown>;
+  result: Record<string, unknown>;
+}
+
 export interface UsageEntry {
   kind: string;
   model: string;
@@ -279,6 +285,11 @@ export const api = {
   reject: (id: string) =>
     req<{ ok: boolean }>(`/api/runs/${id}/reject`, { method: "POST" }),
   usage: () => req<{ total_usd: number; entries: UsageEntry[] }>("/api/usage"),
+
+  chat: (messages: { role: string; content: string }[]) =>
+    req<{ reply: string; steps: AgentStep[] }>("/api/agent/chat", {
+      method: "POST", body: JSON.stringify({ messages }),
+    }),
 
   // token in the query because EventSource can't send an auth header
   runEventsUrl: (id: string) =>

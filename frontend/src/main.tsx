@@ -12,6 +12,7 @@ import { RunsPage } from "./pages/RunsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { AssistantPage } from "./pages/AssistantPage";
 import { Icon } from "./Icon";
 import "./styles.css";
 
@@ -48,6 +49,7 @@ function Shell() {
       <aside className="sidebar">
         <div className="brand"><span className="logo">U</span> Understudy</div>
         <NavItem to="/" end icon="dashboard" label="Dashboard" />
+        <NavItem to="/assistant" icon="chat" label="Assistant" />
         <NavItem to="/workflows" icon="workflows" label="Workflows" />
         <NavItem to="/runs" icon="runs" label="Runs" />
         <NavItem to="/approvals" icon="approvals" label="Approvals" badge={pending} />
@@ -81,6 +83,7 @@ function Shell() {
           <Route path="/runs" element={<RunsPage />} />
           <Route path="/runs/:id" element={<RunPage />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
+          <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </div>

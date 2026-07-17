@@ -258,6 +258,34 @@ textarea.input { resize: vertical; }
 .kv:last-of-type { border-bottom: none; }
 .kv span { color: var(--muted); }
 
+/* ============================ assistant chat ============================ */
+.chat-thread { display: flex; flex-direction: column; gap: 14px; padding: 4px 0 16px; }
+.msg { display: flex; flex-direction: column; max-width: 82%; }
+.msg.user { align-self: flex-end; align-items: flex-end; }
+.msg.assistant { align-self: flex-start; }
+.msg-bubble { padding: 10px 14px; border-radius: 13px; font-size: 14.5px; line-height: 1.55; }
+.msg.user .msg-bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
+.msg.assistant .msg-bubble { background: var(--surface); border: 1px solid var(--border);
+  border-bottom-left-radius: 4px; box-shadow: var(--shadow-sm); }
+.msg-bubble.typing { color: var(--muted); }
+.activity { margin-top: 6px; font-size: 12.5px; }
+.activity summary { cursor: pointer; color: var(--muted); display: inline-flex;
+  align-items: center; gap: 6px; list-style: none; }
+.activity summary::-webkit-details-marker { display: none; }
+.actrow { display: flex; gap: 6px; align-items: center; padding: 5px 0 0 20px;
+  color: var(--muted); flex-wrap: wrap; }
+.acttool { font-family: var(--mono); font-weight: 650; color: var(--primary-ink); }
+.actio { font-family: var(--mono); font-size: 11.5px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-input { display: flex; gap: 8px; position: sticky; bottom: 0;
+  padding: 12px 0 4px; background: linear-gradient(0deg, var(--bg) 70%, transparent); }
+.chat-input .input { flex: 1; }
+.chat-empty { text-align: center; color: var(--muted); padding: 24px 0; }
+.chat-empty-ic { width: 52px; height: 52px; border-radius: 14px; background: var(--primary-wash);
+  color: var(--primary); display: grid; place-items: center; margin: 0 auto 12px; }
+.chat-empty .chips { justify-content: center; margin-top: 10px; }
+
 @media (max-width: 720px) {
   .sidebar { position: fixed; z-index: 20; transform: translateX(-100%); }
   .container { padding: 22px 18px 80px; }

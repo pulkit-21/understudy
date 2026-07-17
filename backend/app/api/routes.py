@@ -58,6 +58,15 @@ class ReplayBody(BaseModel):
     events: list  # rrweb events
 
 
+class ChatMessage(BaseModel):
+    role: str      # "user" | "assistant"
+    content: str
+
+
+class ChatBody(BaseModel):
+    messages: list[ChatMessage]
+
+
 def build_router(traces: TraceRepo, workflows: WorkflowRepo,
                  runs: RunManager, usage: UsageRepo,
                  replays: ReplayRepo) -> APIRouter:
@@ -326,6 +335,23 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
     def usage_log(user: User = Depends(current_user)):
         return {"total_usd": round(usage.total(user.org_id), 4),
                 "entries": usage.recent(user.org_id)}
+
+    # ---- conversational agent -----------------------------------------------
+
+    @r.post("/agent/chat")
+    @limiter.limit("20/minute")
+    async def agent_chat(body: ChatBody, request: Request,
+                         user: User = Depends(current_user)):
+        from ..agent import AgentTools, run_agent
+        from ..induction.llm import MODEL
+        tools = AgentTools(workflows, runs, traces, usage, user.org_id)
+        result = await run_agent(
+            [{"role": m.role, "content": m.content} for m in body.messages], tools)
+        if result.get("cost_usd"):
+            usage.record(user.org_id, MODEL, result.get("input_tokens", 0),
+                         result.get("output_tokens", 0), result["cost_usd"],
+                         kind="agent")
+        return {"reply": result["reply"], "steps": result["steps"]}
 
     @r.post("/runs/{run_id}/retry")
     @limiter.limit("30/minute")

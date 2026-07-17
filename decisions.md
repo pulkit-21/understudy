@@ -843,3 +843,35 @@ approvals, settings, trace replay, login) rather than a per-page rewrite.
 the chrome got quieter and more consistent so the spec, audit log, and session
 replay stand out. Dark mode and a mobile drawer are deferred (the sidebar
 collapses off-canvas under 720px; a toggle is future work).
+
+---
+
+## D33 — Conversational agent that orchestrates workflows (gate-governed)
+
+**Decision.** A chat assistant (`app/agent.py`, `POST /api/agent/chat`, and an
+Assistant page) that discovers, learns, and runs workflows from natural language
+using Anthropic tool-use. Its tools call the **same org-scoped repos/manager**
+the UI uses: list/get workflows, run_workflow, run_batch, list/get runs,
+list_traces, induce_workflow, dashboard.
+
+**The safety design is the point.** The agent has **no approve/reject tool** — by
+construction it cannot release an approval gate; it can only start runs, which
+still hard-pause for a human in the Approvals inbox. So the agent *orchestrates*
+and the deterministic executor + gates still *decide* — the same "LLM proposes,
+deterministic code decides" spine as induction, now at the orchestration layer.
+There's a test asserting no approval tool exists, and tests that the tools are
+org-scoped and flag the gate. Every tool call is returned as an **activity trace**
+and rendered as a monitoring panel under each reply (what it did, with real ids).
+
+**Alternatives considered.** (a) Give the agent an approve tool for "full
+automation" — rejected; it would defeat the entire guardrail. Auto-approval is
+available, but only via the explicit per-workflow *policy* the human configures,
+not the chat agent. (b) Free-form agent that drives the browser directly —
+rejected; routing through the existing typed, gated, audited API keeps every
+agent action reproducible and safe. (c) SSE token streaming of the reply —
+deferred; a synchronous turn returning reply + full activity trace is simpler and
+still shows the agent's working.
+
+**Cost/limits.** Each turn is one+ model calls (tool-use loop, capped at 6
+rounds); the endpoint is rate-limited and usage is metered (`kind=agent`) into
+the same cost view.
