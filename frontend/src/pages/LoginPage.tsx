@@ -43,8 +43,11 @@ export function LoginPage() {
   return (
     <div className="authwrap">
       <div className="authcard card">
-        <div className="brand" style={{ fontSize: 20, marginBottom: 4 }}>
-          Understudy
+        <div className="brand-row">
+          <span className="logo">U</span>
+          <span style={{ fontSize: 19, fontWeight: 680, letterSpacing: "-0.02em" }}>
+            Understudy
+          </span>
         </div>
         <p className="page-sub" style={{ marginBottom: 22 }}>
           Learn a browser workflow by watching, then run it with a gate.

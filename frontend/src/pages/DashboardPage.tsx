@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, ApiError, DashboardData } from "../api";
+import { Icon } from "../Icon";
 
-function Stat({ label, value, hint, accent }: {
-  label: string; value: string; hint?: string; accent?: string;
+function Stat({ label, value, hint, accent, icon }: {
+  label: string; value: string; hint?: string; accent?: string; icon: string;
 }) {
   return (
     <div className="stat card">
+      <div className="stat-top">
+        <span className="stat-ic"
+              style={accent ? { background: "transparent", color: accent } : undefined}>
+          <Icon name={icon} size={17} />
+        </span>
+      </div>
       <div className="stat-value" style={accent ? { color: accent } : undefined}>
         {value}
       </div>
@@ -50,16 +57,16 @@ export function DashboardPage() {
       )}
 
       <div className="stat-grid">
-        <Stat label="Workflows" value={String(d.workflows)} />
-        <Stat label="Total runs" value={String(d.total_runs)} />
-        <Stat label="Success rate" value={rate}
+        <Stat icon="workflows" label="Workflows" value={String(d.workflows)} />
+        <Stat icon="runs" label="Total runs" value={String(d.total_runs)} />
+        <Stat icon="check" label="Success rate" value={rate}
               accent="var(--success)"
               hint={`${d.run_counts.completed ?? 0} completed`} />
-        <Stat label="Pending approvals" value={String(d.pending_approvals)}
+        <Stat icon="approvals" label="Pending approvals" value={String(d.pending_approvals)}
               accent={d.pending_approvals ? "var(--warn)" : undefined} />
-        <Stat label="Est. time saved" value={saved}
+        <Stat icon="clock" label="Est. time saved" value={saved}
               hint="~1.5 min per posted bill" />
-        <Stat label="LLM cost" value={`$${d.cost_usd.toFixed(2)}`}
+        <Stat icon="dollar" label="LLM cost" value={`$${d.cost_usd.toFixed(2)}`}
               hint="induction only; runs are free" />
       </div>
 

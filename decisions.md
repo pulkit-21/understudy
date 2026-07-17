@@ -819,3 +819,27 @@ never blocks saving the semantic trace (which is what induction actually needs).
 **Tradeoffs.** ~260KB vendored rrweb record bundle served into the mock apps and
 ~130KB added to the SPA for the Replayer; replay JSON (tens–hundreds of KB) in a
 JSON column — all fine at demo scale, documented as such.
+
+---
+
+## D32 — Prod-grade UI overhaul: sidebar app shell + design system
+
+**Decision.** Move from the top-nav "control panel" look to a real SaaS app
+shell: a left **icon sidebar** (Dashboard / Workflows / Runs / Approvals /
+Settings, a "Mock apps" group, and the signed-in user + sign-out pinned at the
+bottom), and a refreshed design system — Inter/system type scale, a restrained
+indigo accent, softer borders + shadows, a consistent radius, inline SVG icons
+(self-contained, no icon-font dependency), and polished stat cards, buttons,
+badges, inputs, banners, and status pills.
+
+**Reasoning.** User testing said the app "looked like a demo, not prod." The
+functionality was already rich; the visual layer was the gap. A sidebar shell +
+iconography + tighter tokens is the highest-leverage change to read as a product.
+Because every page shares the same component classes, refining those classes +
+the shell lifted the whole app at once (dashboard, workflow editor, runs,
+approvals, settings, trace replay, login) rather than a per-page rewrite.
+
+**What I deliberately kept.** The legible workflow spec stays the visual focus —
+the chrome got quieter and more consistent so the spec, audit log, and session
+replay stand out. Dark mode and a mobile drawer are deferred (the sidebar
+collapses off-canvas under 720px; a toggle is future work).

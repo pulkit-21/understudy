@@ -12,7 +12,21 @@ import { RunsPage } from "./pages/RunsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { Icon } from "./Icon";
 import "./styles.css";
+
+function NavItem({ to, icon, label, badge, end }: {
+  to: string; icon: string; label: string; badge?: number; end?: boolean;
+}) {
+  return (
+    <NavLink to={to} end={end}
+             className={({ isActive }) => "navitem" + (isActive ? " active" : "")}>
+      <Icon name={icon} />
+      <span>{label}</span>
+      {badge ? <span className="navbadge">{badge}</span> : null}
+    </NavLink>
+  );
+}
 
 function Shell() {
   const { user, logout } = useAuth();
@@ -30,34 +44,47 @@ function Shell() {
   }, []);
 
   return (
-    <>
-      <nav className="nav">
-        <span className="brand">
-          Understudy <small>learn a workflow, run it with a gate</small>
-        </span>
-        <NavLink to="/" end>Dashboard</NavLink>
-        <NavLink to="/workflows">Workflows</NavLink>
-        <NavLink to="/runs">Runs</NavLink>
-        <NavLink to="/approvals">
-          Approvals{pending > 0 && <span className="navbadge">{pending}</span>}
-        </NavLink>
-        <span className="spacer" />
-        <a className="ext" href="/portal" target="_blank" rel="noreferrer">Vendra ↗</a>
-        <a className="ext" href="/erp" target="_blank" rel="noreferrer">LedgerOne ↗</a>
-        <NavLink to="/settings" className="whoami">{user?.email}</NavLink>
-        <a className="ext" onClick={logout} style={{ cursor: "pointer" }}>Sign out</a>
-      </nav>
-      <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/workflows" element={<TracesPage />} />
-        <Route path="/traces/:id" element={<TracePage />} />
-        <Route path="/workflows/:id" element={<WorkflowPage />} />
-        <Route path="/runs" element={<RunsPage />} />
-        <Route path="/runs/:id" element={<RunPage />} />
-        <Route path="/approvals" element={<ApprovalsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-      </Routes>
-    </>
+    <div className="app-layout">
+      <aside className="sidebar">
+        <div className="brand"><span className="logo">U</span> Understudy</div>
+        <NavItem to="/" end icon="dashboard" label="Dashboard" />
+        <NavItem to="/workflows" icon="workflows" label="Workflows" />
+        <NavItem to="/runs" icon="runs" label="Runs" />
+        <NavItem to="/approvals" icon="approvals" label="Approvals" badge={pending} />
+        <NavItem to="/settings" icon="settings" label="Settings" />
+
+        <div className="sb-section">Mock apps</div>
+        <a className="navitem" href="/portal" target="_blank" rel="noreferrer">
+          <Icon name="external" /><span>Vendra portal</span>
+        </a>
+        <a className="navitem" href="/erp" target="_blank" rel="noreferrer">
+          <Icon name="external" /><span>LedgerOne ERP</span>
+        </a>
+        <a className="navitem" href="/docs" target="_blank" rel="noreferrer">
+          <Icon name="file" /><span>API docs</span>
+        </a>
+
+        <div className="spacer" />
+        <div className="sb-user">
+          <div className="who">{user?.email}</div>
+          <a className="navitem" onClick={logout} style={{ cursor: "pointer" }}>
+            <Icon name="logout" /><span>Sign out</span>
+          </a>
+        </div>
+      </aside>
+      <div className="main">
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/workflows" element={<TracesPage />} />
+          <Route path="/traces/:id" element={<TracePage />} />
+          <Route path="/workflows/:id" element={<WorkflowPage />} />
+          <Route path="/runs" element={<RunsPage />} />
+          <Route path="/runs/:id" element={<RunPage />} />
+          <Route path="/approvals" element={<ApprovalsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
+      </div>
+    </div>
   );
 }
 
