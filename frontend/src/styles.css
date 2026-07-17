@@ -290,6 +290,24 @@ textarea.input { resize: vertical; }
   font-size: 14px; background: none; border: none; width: 100%; font-family: inherit; }
 .theme-toggle:hover { background: var(--surface-2); color: var(--text); }
 
+/* ---- guided tour ---- */
+.tour-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(10,12,18,.55); }
+.tour-ring { position: fixed; border-radius: 10px; box-shadow: 0 0 0 3px var(--primary),
+  0 0 0 9999px rgba(10,12,18,.55); pointer-events: none; transition: all .15s; }
+.tour-pop { position: fixed; z-index: 1001; width: 300px; background: var(--surface);
+  color: var(--text); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-md); padding: 16px; }
+.tour-title { font-weight: 680; margin-bottom: 5px; }
+.tour-body { color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+.tour-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.tour-count { color: var(--faint); font-size: 12px; }
+.tour-btns { display: flex; gap: 6px; }
+.help-fab { position: fixed; bottom: 20px; right: 20px; z-index: 900; width: 40px;
+  height: 40px; border-radius: 50%; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--muted); font-size: 18px; font-weight: 700;
+  cursor: pointer; box-shadow: var(--shadow-md); }
+.help-fab:hover { color: var(--primary); }
+
 /* ============================ replay + live view ============================ */
 .livedot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
   background: var(--danger); margin-left: 6px; animation: pulse 1.1s infinite; }

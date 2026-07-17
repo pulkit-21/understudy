@@ -15,6 +15,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { AssistantPage } from "./pages/AssistantPage";
 import { TeamPage } from "./pages/TeamPage";
 import { AuditPage } from "./pages/AuditPage";
+import { Tour } from "./Tour";
 import { Icon } from "./Icon";
 import "./styles.css";
 
@@ -55,6 +56,8 @@ function NavItem({ to, icon, label, badge, end }: {
 function Shell() {
   const { user, logout } = useAuth();
   const [pending, setPending] = useState(0);
+  const [tour, setTour] = useState(() => !localStorage.getItem("understudy_tour_seen"));
+  function closeTour() { localStorage.setItem("understudy_tour_seen", "1"); setTour(false); }
 
   // keep the approvals badge fresh — the queue changes as runs hit gates
   useEffect(() => {
@@ -118,6 +121,8 @@ function Shell() {
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </div>
+      <button className="help-fab" title="Take a tour" onClick={() => setTour(true)}>?</button>
+      {tour && <Tour onClose={closeTour} />}
     </div>
   );
 }
