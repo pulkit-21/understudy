@@ -991,3 +991,20 @@ that bar:
 gap the user (rightly) flagged. Dark mode via CSS variables meant one palette
 block themed the entire app. The audit feed reuses the per-run event log (no new
 storage) — the same tamper-evident-style trail, surfaced org-wide.
+
+---
+
+## D39 — Guided product tour (navigation guide)
+
+**Decision.** Add a dependency-free coach-mark tour (`Tour.tsx`) that walks a
+first-time user through the five core surfaces — Dashboard, Assistant, Workflows,
+Approvals, Audit log — highlighting each nav item with a ring and a tooltip
+("1 of 5", Skip/Back/Next/Done). It auto-starts once (guarded by
+`localStorage.understudy_tour_seen`) and can be re-opened any time from a "?"
+help FAB in the corner.
+
+**Reasoning.** Matching invoice-copilot's navigation guide. A tour is the cheapest
+way to make a deep product legible on first contact — it frames *why* each
+surface exists (esp. the safety story: "the agent never approves an irreversible
+step itself"). Built with `getBoundingClientRect` + a fixed overlay rather than a
+tour library to avoid a dependency and keep it themable via existing CSS vars.
