@@ -12,6 +12,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 from typing import Any
 
 from .induction.heuristic import induce_heuristic
@@ -272,17 +273,112 @@ def _build_cards(tools: AgentTools, steps: list[dict]) -> list[dict]:
     return cards
 
 
+_AFFIRM = re.compile(r"\b(yes|confirm|proceed|go ahead|do it|sure|ok|okay)\b", re.I)
+_INV = re.compile(r"\bINV-?\d+\b", re.I)
+
+
+def _invoice_ids(text: str) -> list[str]:
+    out = []
+    for m in _INV.findall(text or ""):
+        m = m.upper()
+        out.append(m if m.startswith("INV-") else "INV-" + m[3:])
+    return _dedup(out)
+
+
+async def _mock_agent(history: list[dict], tools: AgentTools) -> dict:
+    """Deterministic, keyless fallback (no API key needed) — mirrors the
+    reference's mock LLM. Regex-maps common requests to the SAME gated tools, so
+    the assistant still works (and is testable) offline. Not as flexible as the
+    LLM, but never bypasses a gate."""
+    steps: list[dict] = []
+
+    async def call(name, args):
+        r = await tools.dispatch(name, args)
+        steps.append({"tool": name, "input": args, "result": r})
+        return r
+
+    def done(reply):
+        return {"reply": reply, "steps": steps, "cards": _build_cards(tools, steps),
+                "cost_usd": 0.0, "input_tokens": 0, "output_tokens": 0}
+
+    last = (history[-1]["content"] if history else "")
+    low = last.lower()
+    ids = _invoice_ids(last)
+
+    async def _first_wf():
+        wf = await call("list_workflows", {})
+        return (wf.get("workflows") or [None])[0]
+
+    # confirm a previously-previewed batch (scan history for the invoice ids)
+    if _AFFIRM.search(low) and not ids:
+        prior: list[str] = []
+        for m in reversed(history[:-1]):
+            prior = _invoice_ids(m.get("content", ""))
+            if prior:
+                break
+        if not prior:
+            return done("There's nothing pending to confirm. Try “run the invoice "
+                        "workflow on INV-1002”.")
+        wf = await _first_wf()
+        if not wf:
+            return done("There are no workflows yet — learn one first.")
+        key = (wf["parameters"] or [{"key": "invoice_id"}])[0]["key"]
+        res = await call("run_batch", {"workflow_id": wf["id"], "param_key": key,
+                                       "values": prior, "confirmed": True})
+        return done(f"Started {res.get('count', 0)} runs. Each pauses for your "
+                    "approval — release them on the run cards or in Approvals.")
+
+    # list workflows
+    if "workflow" in low and any(w in low for w in
+                                 ["what", "which", "list", "show", "have", "any"]):
+        wf = await call("list_workflows", {})
+        names = ", ".join(w["name"] for w in wf["workflows"]) or "none yet"
+        return done(f"You have {len(wf['workflows'])} workflow(s): {names}.")
+
+    # what's awaiting approval
+    if any(w in low for w in ["approv", "waiting", "pending"]):
+        r = await call("list_runs", {"status": "awaiting_approval"})
+        n = len(r["runs"])
+        return done(f"{n} run(s) are waiting for your approval — review them below."
+                    if n else "Nothing is waiting for approval right now. 🎉")
+
+    # run on invoice(s)
+    if ids:
+        wf = await _first_wf()
+        if not wf:
+            return done("There are no workflows yet — learn one from a demonstration first.")
+        key = (wf["parameters"] or [{"key": "invoice_id"}])[0]["key"]
+        if len(ids) == 1:
+            await call("run_workflow", {"workflow_id": wf["id"], "params": {key: ids[0]}})
+            return done(f"Started a run for {ids[0]} — it will pause for your "
+                        "approval before posting. You can approve it below.")
+        await call("run_batch", {"workflow_id": wf["id"], "param_key": key, "values": ids})
+        return done(f"This will start {len(ids)} runs for {', '.join(ids)}. "
+                    "Reply “yes” to proceed.")
+
+    # status / dashboard
+    if any(w in low for w in ["status", "dashboard", "summary", "how many", "how are"]):
+        d = await call("get_dashboard", {})
+        return done(f"{d['workflows']} workflow(s), {sum(d['run_counts'].values())} "
+                    f"run(s), {d['pending_approvals']} awaiting approval.")
+
+    return done("I can list your workflows, run one on an invoice (e.g. “run "
+                "INV-1002”), run a batch, and show what's awaiting approval. "
+                "(This is the offline fallback; set ANTHROPIC_API_KEY for the full "
+                "LLM assistant.)")
+
+
 async def run_agent(history: list[dict], tools: AgentTools) -> dict:
     """Run the tool-use loop for one user turn. Returns the assistant reply plus
-    an activity trace of every tool call (name, input, result) for the monitor."""
+    an activity trace of every tool call (name, input, result) for the monitor.
+    Falls back to a deterministic keyless agent when no API key is configured."""
+    force_mock = os.environ.get("UNDERSTUDY_AGENT_MOCK") == "1"
+    if force_mock or not os.environ.get("ANTHROPIC_API_KEY"):
+        return await _mock_agent(history, tools)
     try:
         from anthropic import AsyncAnthropic
     except ImportError:
-        return {"reply": "The assistant needs the anthropic SDK installed.",
-                "steps": []}
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return {"reply": "The assistant is unavailable — no ANTHROPIC_API_KEY is "
-                         "configured on the server.", "steps": []}
+        return await _mock_agent(history, tools)
 
     client = AsyncAnthropic()
     convo: list[dict] = [{"role": m["role"], "content": m["content"]}

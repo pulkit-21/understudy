@@ -928,3 +928,19 @@ deterministic code decides"), applied at the orchestration layer.
 **Still to match (next):** a keyless deterministic fallback for the chat (like
 their mock LLM) so the assistant works with no API key — induction already has
 this; the chat doesn't yet.
+
+---
+
+## D36 — Keyless deterministic chat fallback (works with no API key)
+
+**Decision.** The Assistant now works even when `ANTHROPIC_API_KEY` is unset (or
+`UNDERSTUDY_AGENT_MOCK=1`): a deterministic `_mock_agent` regex-maps common
+requests ("what workflows", "run INV-1002", "which need approval", batch +
+confirm, status) to the SAME org-scoped, gated tools and returns the same
+{reply, steps, cards} envelope. This mirrors invoice-copilot's mock LLM: the app
+(and now the chat) runs and is testable with zero keys, and the fallback still
+can't bypass a gate. Tested offline via `UNDERSTUDY_AGENT_MOCK`.
+
+**Why:** the hosted demo may not have a key; before this, the chat returned
+"unavailable". Now it degrades to a capable offline assistant. The full LLM
+handles free-form language; the mock covers the demo's core commands.

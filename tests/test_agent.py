@@ -89,6 +89,24 @@ class _Stub:
 
 
 @pytest.mark.asyncio
+async def test_keyless_mock_agent_works_offline(demo_trace, org_id, monkeypatch):
+    """The chat must work with no API key (deterministic fallback), like the
+    reference's mock LLM — and still route through the gated tools."""
+    monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
+    from app.agent import run_agent
+    WorkflowRepo(SessionLocal).save(induce_heuristic(demo_trace), org_id)
+    tools = _tools(org_id)
+
+    r1 = await run_agent([{"role": "user", "content": "what workflows do I have?"}], tools)
+    assert "workflow" in r1["reply"].lower()
+    assert any(s["tool"] == "list_workflows" for s in r1["steps"])
+
+    r2 = await run_agent([{"role": "user", "content": "run the workflow on INV-1002"}], tools)
+    assert any(s["tool"] == "run_workflow" for s in r2["steps"])
+    assert any(c["type"] == "run" for c in r2["cards"])  # actionable card returned
+
+
+@pytest.mark.asyncio
 async def test_unknown_tool_is_handled():
     res = await _tools("org-x").dispatch("delete_everything", {})
     assert "error" in res
