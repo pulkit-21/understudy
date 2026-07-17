@@ -262,8 +262,8 @@ export function WorkflowPage() {
           Unsaved edits won’t affect this run until you save.</span>}
       </div>
 
-      {/* ---- batch ---- */}
-      {spec.parameters.length > 0 && (
+      {/* ---- batch (single-param here; multi-param batches via the Assistant) ---- */}
+      {spec.parameters.length === 1 && (
         <>
           <div className="section-h">Run a batch</div>
           <div className="card" style={{ padding: 18 }}>

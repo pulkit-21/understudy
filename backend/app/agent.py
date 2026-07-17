@@ -63,6 +63,10 @@ def tool_schemas() -> list[dict]:
              "workflow_id": {"type": "string"},
              "param_key": {"type": "string"},
              "values": {"type": "array", "items": {"type": "string"}},
+             "defaults": {"type": "object",
+                          "additionalProperties": {"type": "string"},
+                          "description": "values for the workflow's OTHER parameters "
+                                         "(when it has more than one)"},
              "confirmed": {"type": "boolean",
                            "description": "true only after the user has confirmed"},
          }, "required": ["workflow_id", "values"]}},
@@ -189,7 +193,8 @@ class AgentTools:
                             "with confirmed=true."}
         from uuid import uuid4
         batch = "batch-" + uuid4().hex[:10]
-        ids = [self.runs.start_run(spec, {key: v}, self.org, batch_id=batch).id
+        defaults = a.get("defaults") or {}
+        ids = [self.runs.start_run(spec, {**defaults, key: v}, self.org, batch_id=batch).id
                for v in a["values"]]
         return {"batch_id": batch, "run_ids": ids, "count": len(ids),
                 "note": "Runs execute under the workflow's approval policy; any "

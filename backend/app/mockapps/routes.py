@@ -95,6 +95,34 @@ def erp_post_bill(
     return RedirectResponse(f"/erp?posted={bill.ref}", status_code=303)
 
 
+# ---- LedgerOne: vendor master (a second, multi-field task) -------------------
+
+@router.get("/erp/vendors", response_class=HTMLResponse)
+def erp_vendors(request: Request, created: str | None = None):
+    flash = f"Vendor {created} created." if created else None
+    return templates.TemplateResponse(
+        request, "erp_vendors.html",
+        {**ERP_BRAND, "vendors": ERP.vendors, "flash": flash},
+    )
+
+
+@router.get("/erp/vendors/new", response_class=HTMLResponse)
+def erp_vendor_new_form(request: Request):
+    return templates.TemplateResponse(request, "erp_vendor_new.html", ERP_BRAND)
+
+
+@router.post("/erp/vendors/new")
+def erp_create_vendor(
+    vendor_name: str = Form(...),
+    email: str = Form(...),
+    payment_terms: str = Form(...),
+    tax_id: str = Form(...),
+):
+    v = ERP.add_vendor(vendor_name=vendor_name, email=email,
+                       payment_terms=payment_terms, tax_id=tax_id)
+    return RedirectResponse(f"/erp/vendors?created={v.ref}", status_code=303)
+
+
 @router.post("/erp/_reset")
 def erp_reset():
     """Test/eval hook: wipe the ledger so runs start from a known state."""

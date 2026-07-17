@@ -81,6 +81,41 @@ def build_demo_trace(base: str = DEFAULT_BASE) -> Trace:
                  start_url=f"{base}/portal")
 
 
+def build_vendor_trace(base: str = DEFAULT_BASE) -> Trace:
+    """A second demonstration: onboard a vendor in LedgerOne. Every value is
+    operator-supplied (no source page to read from), so induction learns a
+    MULTI-PARAMETER workflow — the counterpoint to the read-live invoice task."""
+    ts = iter(range(1_000, 100_000, 1_500))
+    ev: list[SemanticEvent] = []
+
+    def add(type_, url, *, target=None, value=None, page_title=None, page_text=None):
+        ev.append(SemanticEvent(type=type_, url=url, ts_ms=next(ts), target=target,
+                                value=value, page_title=page_title,
+                                page_text=page_text, readable_fields=[]))
+
+    add(EventType.NAVIGATE, f"{base}/erp/vendors/new",
+        page_title="LedgerOne — New vendor",
+        page_text="Onboard a vendor Vendor name Billing email Payment terms "
+                  "Tax ID Create vendor")
+    add(EventType.FILL, f"{base}/erp/vendors/new", value="Aurora Instruments Ltd",
+        target=TargetInfo(role="textbox", name="Vendor name",
+                          testid="field-vendor-name", tag="input"))
+    add(EventType.FILL, f"{base}/erp/vendors/new", value="ap@aurora-instruments.example",
+        target=TargetInfo(role="textbox", name="Billing email",
+                          testid="field-email", tag="input"))
+    add(EventType.SELECT, f"{base}/erp/vendors/new", value="Net 30",
+        target=TargetInfo(role="combobox", name="Payment terms",
+                          testid="field-payment-terms", tag="select"))
+    add(EventType.FILL, f"{base}/erp/vendors/new", value="TX-99-4471",
+        target=TargetInfo(role="textbox", name="Tax ID",
+                          testid="field-tax-id", tag="input"))
+    add(EventType.SUBMIT, f"{base}/erp/vendors/new",
+        target=TargetInfo(role="button", name="Create vendor",
+                          testid="create-vendor", tag="button"))
+    return Trace(name="Onboard a vendor in LedgerOne", events=ev,
+                 start_url=f"{base}/erp/vendors/new")
+
+
 DEMO_EMAIL = "demo@understudy.app"
 DEMO_PASSWORD = "understudy"
 
@@ -108,10 +143,14 @@ def seed_if_empty(traces, workflows, org_id: str,
 
     if workflows.list(org_id):
         return False
-    trace = build_demo_trace(base=base)
-    trace.id = "demo-seed-001"
-    traces.save(trace, org_id)
-    spec = induce_heuristic(trace)
-    spec.id = f"wf-{trace.id}"  # same scheme as induce, so re-learning updates it
-    workflows.save(spec, org_id)
+
+    def one(trace: Trace, trace_id: str) -> None:
+        trace.id = trace_id
+        traces.save(trace, org_id)
+        spec = induce_heuristic(trace)
+        spec.id = f"wf-{trace_id}"  # same scheme as induce, so re-learning updates it
+        workflows.save(spec, org_id)
+
+    one(build_demo_trace(base=base), "demo-seed-001")       # read-live, 1 input
+    one(build_vendor_trace(base=base), "demo-vendor-001")   # multi-parameter
     return True

@@ -48,6 +48,20 @@ def test_operator_supplied_field_becomes_a_second_parameter(demo_trace):
                for s in spec.steps)
 
 
+def test_vendor_onboarding_is_multi_parameter(demo_trace):
+    """The second showcase task: all values are operator-supplied (no source
+    page), so it learns a multi-parameter workflow with a gated commit."""
+    from app.seed import build_vendor_trace
+
+    spec = induce_heuristic(build_vendor_trace())
+    keys = {p.key for p in spec.parameters}
+    assert keys == {"vendor_name", "billing_email", "payment_terms", "tax_id"}
+    assert not any(s.action == ActionType.EXTRACT for s in spec.steps)  # nothing to read
+    commit = [s for s in spec.steps if s.risk == RiskLevel.COMMIT]
+    assert len(commit) == 1 and commit[0].requires_approval  # 'Create' is gated
+    assert spec.validate_references() == []
+
+
 def test_read_values_become_extracts_referenced_by_fills(demo_trace):
     spec = induce_heuristic(demo_trace)
     extract_keys = {s.extract_key for s in spec.steps

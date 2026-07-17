@@ -45,6 +45,29 @@ def test_batch_fans_out_one_run_per_value(authed_client, demo_trace, stub_execut
     assert all(r["batch_id"] == batch_id for r in listed)
 
 
+def test_multi_param_batch_uses_defaults(authed_client, org_id, stub_executor):
+    """A multi-parameter workflow can be batched: one param varies, the rest come
+    from `defaults`, so every run has all its inputs."""
+    client, _ = authed_client
+    from app.db import SessionLocal, WorkflowRepo
+    from app.induction.heuristic import induce_heuristic
+    from app.seed import build_vendor_trace
+    spec = induce_heuristic(build_vendor_trace())
+    WorkflowRepo(SessionLocal).save(spec, org_id)
+
+    r = client.post(f"/api/workflows/{spec.id}/batch", json={
+        "param_key": "vendor_name",
+        "param_values": ["Acme Robotics", "Beta Foods"],
+        "defaults": {"billing_email": "ap@x.example", "payment_terms": "Net 30",
+                     "tax_id": "TX-1"},
+    })
+    assert r.status_code == 200 and r.json()["count"] == 2
+    listed = client.get(f"/api/runs?batch_id={r.json()['batch_id']}").json()
+    assert len(listed) == 2
+    assert all(set(x["params"]) == {"vendor_name", "billing_email", "payment_terms", "tax_id"}
+               for x in listed)
+
+
 def test_batch_requires_a_parameter(authed_client, demo_trace, stub_executor):
     client, org_id = authed_client
     from app.db import SessionLocal, WorkflowRepo

@@ -43,6 +43,7 @@ class RunBody(BaseModel):
 class BatchBody(BaseModel):
     param_values: list[str]          # e.g. a list of invoice ids
     param_key: str | None = None     # which parameter varies; default = sole one
+    defaults: dict[str, str] = {}    # values for the workflow's OTHER parameters
 
 
 class StatusBody(BaseModel):
@@ -299,7 +300,8 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
             raise HTTPException(422, "workflow has no parameter to vary")
         from uuid import uuid4
         batch_id = "batch-" + uuid4().hex[:10]
-        run_ids = [_launch(spec, {key: v}, user.org_id, batch_id=batch_id).id
+        run_ids = [_launch(spec, {**body.defaults, key: v}, user.org_id,
+                           batch_id=batch_id).id
                    for v in body.param_values]
         return {"batch_id": batch_id, "run_ids": run_ids,
                 "count": len(run_ids)}

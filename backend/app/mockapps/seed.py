@@ -61,12 +61,26 @@ class PostedBill(BaseModel):
     gl_code: str
 
 
+class Vendor(BaseModel):
+    """A vendor onboarded into the mock ERP — a second, multi-field task whose
+    values are all operator-supplied (nothing read from a source page), so the
+    learned workflow needs several parameters."""
+
+    ref: str
+    vendor_name: str
+    email: str
+    payment_terms: str
+    tax_id: str
+
+
 class ErpState:
     """In-memory ERP ledger with a reset hook for tests and the eval harness."""
 
     def __init__(self) -> None:
         self.posted: list[PostedBill] = []
+        self.vendors: list[Vendor] = []
         self._seq = 5000
+        self._vseq = 200
 
     def post(self, **fields: str) -> PostedBill:
         self._seq += 1
@@ -74,9 +88,17 @@ class ErpState:
         self.posted.append(bill)
         return bill
 
+    def add_vendor(self, **fields: str) -> Vendor:
+        self._vseq += 1
+        vendor = Vendor(ref=f"VEN-{self._vseq}", **fields)
+        self.vendors.append(vendor)
+        return vendor
+
     def reset(self) -> None:
         self.posted.clear()
+        self.vendors.clear()
         self._seq = 5000
+        self._vseq = 200
 
 
 ERP = ErpState()

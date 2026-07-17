@@ -37,7 +37,8 @@ from ..models.workflow import (
     WorkflowStep,
 )
 
-COMMIT_WORDS = re.compile(r"\b(post|submit|pay|approve|send|confirm|transfer)\b", re.I)
+COMMIT_WORDS = re.compile(
+    r"\b(post|submit|pay|approve|send|confirm|transfer|create|save|record)\b", re.I)
 
 
 def _slug(text: str) -> str:
@@ -46,14 +47,12 @@ def _slug(text: str) -> str:
 
 
 def _looks_dynamic(value: str) -> bool:
-    """Would this value plausibly change run-to-run?
-
-    Numbers, dates, ids and codes are per-run data. Short pure-alpha words may
-    be constants. Deliberately conservative — over-parameterizing is safer than
-    baking one demo's data into the spec. (Values read off a page are turned
-    into extracts regardless of this, via provenance below.)
-    """
+    """Would this path segment plausibly change run-to-run? Used to spot the
+    run-varying token in a URL (e.g. INV-1001 in /portal/invoice/INV-1001).
+    A digit is the tell for ids/codes/dates."""
     return bool(re.search(r"\d", value))
+
+
 
 
 def _extract_key(field: ReadableField) -> str:
@@ -121,7 +120,10 @@ def induce_heuristic(trace: Trace, name: str | None = None) -> WorkflowSpec:
             ))
             value_source[value] = ("extract", key)
             return f"{{{{extract.{key}}}}}"
-        if _looks_dynamic(value):
+        # A value the operator TYPED but that isn't on any source page is a
+        # per-run input -> parameter (keyed by the field). Values read off a page
+        # already became extracts above; empty values fall through as literals.
+        if value.strip():
             key = _slug(fallback_name)
             params.setdefault(key, value)
             value_source[value] = ("param", key)

@@ -944,3 +944,29 @@ can't bypass a gate. Tested offline via `UNDERSTUDY_AGENT_MOCK`.
 **Why:** the hosted demo may not have a key; before this, the chat returned
 "unavailable". Now it degrades to a capable offline assistant. The full LLM
 handles free-form language; the mock covers the demo's core commands.
+
+---
+
+## D37 — Second workflow (multi-parameter) + richer LedgerOne + batch defaults
+
+**Decision.** Add a second showcase task — **onboard a vendor** in LedgerOne — to
+demonstrate breadth the single invoice task couldn't:
+- **Richer mock app:** a LedgerOne vendor master (`/erp/vendors`, `/erp/vendors/new`)
+  with name / billing email / payment terms (select) / tax id.
+- **Genuinely multi-parameter workflow:** every field is operator-supplied (no
+  source page to read), so induction learns **four parameters** — the counterpoint
+  to the invoice task's "one input, rest read live." To make this work I relaxed
+  induction: a value the operator *types* that isn't found on any page is a per-run
+  **parameter** (values on a page still become live extracts). This doesn't change
+  the invoice demo (all its typed values are matched), and it's more correct.
+- **"Create" is a commit:** added create/save/record to the commit vocabulary, so
+  the vendor task is gated too.
+- **Batch with defaults:** the batch endpoint + agent `run_batch` now take a
+  `defaults` map, so a multi-parameter workflow can be batched (one param varies,
+  the rest defaulted). The single-param UI batch stays; multi-param batches via
+  the Assistant.
+
+**Verified end-to-end:** the vendor workflow runs → gates on "Create vendor" →
+human approves → the vendor lands in the master with all four fields. Tests:
+multi-param induction (4 params, no extracts, gated) + multi-param batch-with-
+defaults. Both seed on boot alongside the invoice workflow.

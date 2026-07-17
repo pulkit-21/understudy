@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}LedgerOne — Vendors{% endblock %}
+{% block body %}
+<h1>Vendor master</h1>
+<p class="sub">Suppliers on file. <a href="/erp/vendors/new">Onboard a vendor</a> · <a href="/erp">Bills</a></p>
+{% if flash %}<div class="notice" data-testid="flash">{{ flash }}</div>{% endif %}
+{% if vendors %}
+<table>
+  <thead><tr><th>Ref</th><th>Vendor</th><th>Billing email</th><th>Terms</th><th>Tax ID</th></tr></thead>
+  <tbody>
+    {% for v in vendors %}
+    <tr>
+      <td data-testid="ven-ref">{{ v.ref }}</td>
+      <td data-testid="ven-name">{{ v.vendor_name }}</td>
+      <td>{{ v.email }}</td>
+      <td>{{ v.payment_terms }}</td>
+      <td>{{ v.tax_id }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="card">No vendors yet. <a href="/erp/vendors/new">Onboard the first one</a>.</div>
+{% endif %}
+{% endblock %}

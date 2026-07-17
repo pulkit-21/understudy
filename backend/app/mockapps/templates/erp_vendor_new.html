@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}LedgerOne — New vendor{% endblock %}
+{% block body %}
+<h1>Onboard a vendor</h1>
+<p class="sub">Add a supplier to the vendor master. <a href="/erp/vendors">All vendors</a> · <a href="/erp">Bills</a></p>
+<div class="card">
+  <form method="post" action="/erp/vendors/new" data-testid="vendor-form">
+    <label for="vendor_name">Vendor name</label>
+    <input id="vendor_name" name="vendor_name" data-testid="field-vendor-name" required>
+    <label for="email">Billing email</label>
+    <input id="email" name="email" data-testid="field-email" required>
+    <label for="payment_terms">Payment terms</label>
+    <select id="payment_terms" name="payment_terms" data-testid="field-payment-terms">
+      <option value="Net 15">Net 15</option>
+      <option value="Net 30">Net 30</option>
+      <option value="Net 45">Net 45</option>
+      <option value="Net 60">Net 60</option>
+    </select>
+    <label for="tax_id">Tax ID</label>
+    <input id="tax_id" name="tax_id" data-testid="field-tax-id" placeholder="e.g. TX-99-4471" required>
+    <button type="submit" data-testid="create-vendor">Create vendor</button>
+  </form>
+</div>
+{% endblock %}
