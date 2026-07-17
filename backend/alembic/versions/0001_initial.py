@@ -116,8 +116,18 @@ def upgrade() -> None:
     op.create_index("ix_usage_org_id", "usage", ["org_id"])
     op.create_index("ix_usage_created_at", "usage", ["created_at"])
 
+    op.create_table(
+        "replays",
+        sa.Column("trace_id", sa.String(), primary_key=True),
+        sa.Column("org_id", sa.String(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("events", sa.JSON(), nullable=False),
+    )
+    op.create_index("ix_replays_org_id", "replays", ["org_id"])
+
 
 def downgrade() -> None:
+    op.drop_table("replays")
     op.drop_table("usage")
     op.drop_table("runs")
     op.drop_table("workflow_versions")

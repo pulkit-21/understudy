@@ -4,6 +4,7 @@ from .migrate import run_migrations
 from .models import (
     Base,
     OrgRow,
+    ReplayRow,
     RunRow,
     TraceRow,
     UsageRow,
@@ -11,11 +12,19 @@ from .models import (
     WorkflowRow,
     WorkflowVersionRow,
 )
-from .repositories import RunRepo, TraceRepo, UsageRepo, WorkflowRepo
+from .repositories import (
+    ReplayRepo,
+    RunRepo,
+    TraceRepo,
+    UsageRepo,
+    WorkflowRepo,
+)
 
 __all__ = [
     "Base",
     "OrgRow",
+    "ReplayRepo",
+    "ReplayRow",
     "RunRepo",
     "RunRow",
     "SessionLocal",

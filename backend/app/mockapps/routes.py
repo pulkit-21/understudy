@@ -30,6 +30,13 @@ def recorder_js():
     return FileResponse(_RECORDER_JS, media_type="application/javascript")
 
 
+@router.get("/rrweb.min.js")
+def rrweb_js():
+    """Vendored rrweb record bundle — powers the Sentry-style session replay."""
+    return FileResponse(Path(__file__).parent / "static" / "rrweb.min.js",
+                        media_type="application/javascript")
+
+
 # ---- Vendra: invoice portal -------------------------------------------------
 
 @router.get("/portal", response_class=HTMLResponse)

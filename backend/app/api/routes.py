@@ -16,7 +16,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..auth import User, current_user, user_from_token
-from ..db.repositories import TraceRepo, UsageRepo, WorkflowRepo
+from ..db.repositories import ReplayRepo, TraceRepo, UsageRepo, WorkflowRepo
 from ..executor.manager import RunManager
 from ..induction.heuristic import induce_heuristic
 from ..induction.llm import InductionError, enrich_with_llm
@@ -54,8 +54,13 @@ class StartRecordingBody(BaseModel):
     start_url: str | None = None
 
 
+class ReplayBody(BaseModel):
+    events: list  # rrweb events
+
+
 def build_router(traces: TraceRepo, workflows: WorkflowRepo,
-                 runs: RunManager, usage: UsageRepo) -> APIRouter:
+                 runs: RunManager, usage: UsageRepo,
+                 replays: ReplayRepo) -> APIRouter:
     r = APIRouter(prefix="/api")
 
     # ---- traces -----------------------------------------------------------
@@ -120,7 +125,24 @@ def build_router(traces: TraceRepo, workflows: WorkflowRepo,
         t = traces.load(trace_id, user.org_id)
         if not t:
             raise HTTPException(404)
-        return t
+        return {**t.model_dump(mode="json"),
+                "has_replay": replays.exists(trace_id, user.org_id)}
+
+    @r.post("/traces/{trace_id}/replay")
+    def save_replay(trace_id: str, body: ReplayBody,
+                    user: User = Depends(current_user)):
+        """Store the rrweb session-replay captured while recording."""
+        if not traces.load(trace_id, user.org_id):
+            raise HTTPException(404, "trace not found")
+        replays.save(trace_id, user.org_id, body.events)
+        return {"ok": True, "events": len(body.events)}
+
+    @r.get("/traces/{trace_id}/replay")
+    def get_replay(trace_id: str, user: User = Depends(current_user)):
+        events = replays.get(trace_id, user.org_id)
+        if events is None:
+            raise HTTPException(404, "no replay for this trace")
+        return {"events": events}
 
     # ---- induction ----------------------------------------------------------
 

@@ -16,6 +16,7 @@ from ..executor.runner import Run
 from ..models.trace import Trace
 from ..models.workflow import WorkflowSpec
 from .models import (
+    ReplayRow,
     RunRow,
     TraceRow,
     UsageRow,
@@ -246,3 +247,30 @@ class UsageRepo:
                      "output_tokens": r.output_tokens,
                      "cost_usd": r.cost_usd, "created_at": r.created_at}
                     for r in rows]
+
+
+class ReplayRepo:
+    def __init__(self, session_factory: SessionFactory):
+        self._sf = session_factory
+
+    def save(self, trace_id: str, org_id: str, events: list) -> None:
+        with self._sf() as s:
+            row = s.get(ReplayRow, trace_id)
+            if row is None:
+                row = ReplayRow(trace_id=trace_id, org_id=org_id, created_at=_now())
+            row.org_id = org_id
+            row.events = events
+            s.add(row)
+            s.commit()
+
+    def get(self, trace_id: str, org_id: str) -> list | None:
+        with self._sf() as s:
+            row = s.get(ReplayRow, trace_id)
+            if row is None or row.org_id != org_id:
+                return None
+            return row.events
+
+    def exists(self, trace_id: str, org_id: str) -> bool:
+        with self._sf() as s:
+            row = s.get(ReplayRow, trace_id)
+            return row is not None and row.org_id == org_id

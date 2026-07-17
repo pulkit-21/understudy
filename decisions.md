@@ -788,3 +788,34 @@ instead of duplicating it; the boot seed uses the same scheme.
 **Deferred still:** recording on *real* third-party sites (needs the
 extension); here the recorder works on the same-origin mock apps, which is the
 demonstrable core loop.
+
+---
+
+## D31 — Sentry-style session replay of the recorded demonstration
+
+**Decision.** When you view a recorded demonstration, play it back like a video
+(the way Sentry's session replay works), not just a list of events. The
+in-browser recorder also runs **rrweb** (the same library Sentry uses),
+buffering DOM-mutation events across page navigations in sessionStorage and
+uploading them on stop to `POST /api/traces/{id}/replay` (stored in a separate
+`replays` table, org-scoped, kept out of the trace payload because it's large).
+The trace page mounts rrweb's `Replayer` with custom play/pause + scrub controls.
+
+**Alternatives considered.** (a) Screenshot filmstrip — but the browser can't
+cheaply screenshot itself; rrweb reconstructs the real DOM, which is lighter and
+higher-fidelity. (b) `rrweb-player` (the prebuilt Svelte widget) — its frame
+wouldn't populate in this Vite/React setup, so I dropped it for rrweb's bare
+`Replayer` + my own controls (scale-to-fit, timeline slider) — fully under our
+control and reliable. (c) Recording on real sites — needs the extension; here it
+works on the same-origin mock apps.
+
+**Reasoning.** The replay makes the "we watched you do it" claim tangible and is
+the most direct answer to "show a recording like Sentry." rrweb records
+continuously across the /portal→/erp full-page navigations by concatenating
+per-page snapshot segments into one timeline. The recorder widget is masked out
+of the replay via `blockSelector`. Replay capture is strictly best-effort — it
+never blocks saving the semantic trace (which is what induction actually needs).
+
+**Tradeoffs.** ~260KB vendored rrweb record bundle served into the mock apps and
+~130KB added to the SPA for the Replayer; replay JSON (tens–hundreds of KB) in a
+JSON column — all fine at demo scale, documented as such.

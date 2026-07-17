@@ -80,6 +80,18 @@ class WorkflowVersionRow(Base):
     payload: Mapped[dict] = mapped_column(JSON)
 
 
+class ReplayRow(Base):
+    """rrweb session-replay events for a recorded demonstration — the data that
+    powers the Sentry-style visual playback. Kept out of the trace payload
+    because it's large and only needed on the replay view."""
+    __tablename__ = "replays"
+
+    trace_id: Mapped[str] = mapped_column(String, primary_key=True)
+    org_id: Mapped[str] = mapped_column(String, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    events: Mapped[list] = mapped_column(JSON)
+
+
 class UsageRow(Base):
     """One metered LLM call (induction). Enables the cost/usage view — the only
     place Understudy spends model tokens; runs are deterministic and free."""

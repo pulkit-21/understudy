@@ -47,7 +47,8 @@
   <span class="env">sandbox</span>
 </header>
 <main>{% block body %}{% endblock %}</main>
-<!-- Understudy in-browser recorder: inert unless a recording is active -->
+<!-- Understudy in-browser recorder + rrweb session replay: inert unless recording -->
+<script src="/rrweb.min.js"></script>
 <script src="/recorder.js" defer></script>
 </body>
 </html>

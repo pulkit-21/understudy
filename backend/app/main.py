@@ -23,6 +23,7 @@ from .api.auth_routes import build_auth_router
 from .api.routes import build_router
 from .auth import AuthRepo, bind_auth_repo
 from .db import (
+    ReplayRepo,
     RunRepo,
     SessionLocal,
     TraceRepo,
@@ -47,6 +48,7 @@ bind_auth_repo(auth)
 traces = TraceRepo(SessionLocal)
 workflows = WorkflowRepo(SessionLocal)
 usage = UsageRepo(SessionLocal)
+replays = ReplayRepo(SessionLocal)
 runs = RunManager(base_url=BASE_URL, run_repo=RunRepo(SessionLocal),
                   headless=os.environ.get("UNDERSTUDY_HEADFUL") != "1")
 
@@ -71,7 +73,7 @@ app.add_middleware(
 
 app.include_router(mockapps_router)
 app.include_router(build_auth_router(auth))
-app.include_router(build_router(traces, workflows, runs, usage))
+app.include_router(build_router(traces, workflows, runs, usage, replays))
 
 
 @app.get("/healthz")

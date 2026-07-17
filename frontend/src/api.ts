@@ -76,6 +76,7 @@ export interface Trace {
   started_at: string;
   start_url?: string | null;
   events: SemanticEvent[];
+  has_replay?: boolean;
 }
 
 export interface RunSummary {
@@ -210,6 +211,7 @@ export const api = {
 
   listTraces: () => req<TraceSummary[]>("/api/traces"),
   getTrace: (id: string) => req<Trace>(`/api/traces/${id}`),
+  getReplay: (id: string) => req<{ events: unknown[] }>(`/api/traces/${id}/replay`),
 
   startRecording: (name: string, start_url?: string) =>
     req<{ recording_id: string; name: string; start_url: string }>(

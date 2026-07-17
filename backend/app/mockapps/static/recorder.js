@@ -42,6 +42,27 @@
   const events = () => load(EVENTS, []);
   const push = (evt) => { const e = events(); e.push(evt); save(EVENTS, e); updateWidget(e.length); };
 
+  // ---- rrweb session replay capture (Sentry-style) ------------------------
+  // Records the real DOM as the user interacts, buffered across page loads so
+  // the whole demonstration replays as one continuous video.
+  const RRWEB = "understudy_rrweb";
+  let rrbuf = load(RRWEB, []);
+  let rrDirty = false;
+  const flushRR = () => { if (rrDirty) { save(RRWEB, rrbuf); rrDirty = false; } };
+  if (window.rrweb && typeof window.rrweb.record === "function") {
+    try {
+      window.rrweb.record({
+        emit(ev) { rrbuf.push(ev); rrDirty = true; if (rrbuf.length % 25 === 0) flushRR(); },
+        blockSelector: "#understudy-rec-widget",   // don't film our own widget
+        sampling: { mousemove: 150, scroll: 200 },
+        recordCanvas: false,
+      });
+      window.addEventListener("beforeunload", flushRR);
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushRR(); });
+      setInterval(flushRR, 2000);
+    } catch { /* replay is a bonus; never block recording */ }
+  }
+
   // ================= semantic capture (ported from inject.js) ==============
   function accessibleName(el) {
     if (!el || el.nodeType !== 1) return null;
@@ -165,7 +186,7 @@
   }
   function updateWidget(n) { if (countEl) countEl.textContent = String(n); }
 
-  function cleanup() { sessionStorage.removeItem(REC); sessionStorage.removeItem(EVENTS); }
+  function cleanup() { sessionStorage.removeItem(REC); sessionStorage.removeItem(EVENTS); sessionStorage.removeItem(RRWEB); }
   function cancel() { cleanup(); location.href = "/"; }
 
   async function stop() {
@@ -180,6 +201,19 @@
         body: JSON.stringify(trace),
       });
       if (!res.ok) throw new Error("save failed (" + res.status + ")");
+      // best-effort: upload the rrweb session replay (bonus, never blocks save)
+      try {
+        flushRR();
+        const rr = load(RRWEB, []);
+        if (rr.length) {
+          await fetch("/api/traces/" + rec.id + "/replay", {
+            method: "POST",
+            headers: { "content-type": "application/json", ...(token ? { authorization: "Bearer " + token } : {}) },
+            body: JSON.stringify({ events: rr }),
+          });
+        }
+      } catch { /* ignore */ }
+      sessionStorage.removeItem(RRWEB);
       cleanup();
       location.href = "/workflows?recorded=" + encodeURIComponent(rec.id);
     } catch (err) {
