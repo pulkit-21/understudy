@@ -22,4 +22,15 @@ export const tracesApi = {
       `/api/traces/${traceId}/induce`,
       { method: "POST", body: JSON.stringify({ use_llm }) },
     ),
+
+  induceMulti: (trace_ids: string[], use_llm = true) =>
+    req<{
+      workflow: WorkflowSpec; induced_by: string; problems: string[];
+      parameter_report: {
+        aligned: boolean; trace_count: number;
+        fields: { label: string; values: string[]; varies: boolean; role: string }[];
+      };
+    }>("/api/induce/multi", {
+      method: "POST", body: JSON.stringify({ trace_ids, use_llm }),
+    }),
 };

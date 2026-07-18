@@ -19,6 +19,12 @@ class InduceBody(BaseModel):
     use_llm: bool = True
 
 
+class InduceMultiBody(BaseModel):
+    trace_ids: list[str]             # 2+ recordings of the same task
+    name: str | None = None
+    use_llm: bool = True
+
+
 class RunBody(BaseModel):
     params: dict[str, str] = {}
 

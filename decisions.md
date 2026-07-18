@@ -1383,3 +1383,26 @@ independent and records the crossing as a clean `navigate` event (like typing a
 URL / opening a bookmark) — the same shape as the seeded demo trace, and one
 that generalizes. Verified: recording persists across the jump and the trace
 contains `navigate /portal` → `navigate /erp` with no spurious click.
+
+---
+
+## D54 — Feature: multi-trace parameter discovery
+
+**What.** Record the same task twice (or more) with different data; Understudy
+diffs the recordings to *know* which values are parameters (they vary) vs
+literals (constant) — instead of the single-trace heuristic's guess.
+
+**How.** `induction/multitrace.py` aligns the fill/select steps positionally
+across recordings and flags each field as varies/constant. `induce_from_traces`
+takes the single-trace draft and refines it: promote a hard-coded value that
+actually varies to a parameter; demote a "parameter" that's constant across
+every recording to a literal (extracts/`{{extract.*}}` are left alone).
+Unalignable recordings fall back to the single-trace draft. Surfaced via
+`POST /api/induce/multi` + `InductionService.induce_multi`, and a multi-select
+"Learn from N recordings" affordance on the Workflows page that reports what
+varied vs stayed constant.
+
+**Why it matters.** This is the crux of "learn a *procedure*, not a macro": the
+vendor-onboarding demo, recorded once, makes all four fields parameters; a second
+recording where "Payment terms" is again "Net 30" proves it's a constant and
+demotes it. Verified end-to-end (unit + service + live API). 129 → 134 tests.

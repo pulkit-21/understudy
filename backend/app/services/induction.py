@@ -5,7 +5,7 @@ from __future__ import annotations
 from ..induction.heuristic import induce_heuristic
 from ..induction.llm import InductionError, enrich_with_llm
 from ..repos import TraceRepo, UsageRepo, WorkflowRepo
-from .errors import NotFound
+from .errors import Invalid, NotFound
 
 
 class InductionService:
@@ -44,3 +44,43 @@ class InductionService:
         self.workflows.save(spec, org_id)
         return {"workflow": spec, "induced_by": induced_by,
                 "problems": spec.validate_references()}
+
+    async def induce_multi(self, trace_ids: list[str], org_id: str, *,
+                           use_llm: bool = True, name: str | None = None) -> dict:
+        """Learn from 2+ recordings of the same task, using what varies between
+        them to tell parameters from literals (see induction.multitrace)."""
+        from ..induction.multitrace import induce_from_traces
+
+        if len(trace_ids) < 2:
+            raise Invalid("multi-trace induction needs at least two recordings")
+        traces = []
+        for tid in trace_ids:
+            t = self.traces.load(tid, org_id)
+            if not t:
+                raise NotFound(f"trace not found: {tid}")
+            traces.append(t)
+
+        spec, report = induce_from_traces(traces, name=name)
+        spec.source_trace_ids = trace_ids
+        induced_by = "multi-trace"
+        if use_llm:
+            try:
+                spec = await enrich_with_llm(
+                    traces[0], spec,
+                    on_usage=lambda u: self.usage.record(
+                        org_id, u["model"], u["input_tokens"],
+                        u["output_tokens"], u["cost_usd"]),
+                )
+                spec.source_trace_ids = trace_ids  # enrich carries id/version, re-pin
+                induced_by = "multi-trace+llm"
+            except InductionError:
+                pass
+
+        spec.id = f"wf-{trace_ids[0]}"
+        existing = self.workflows.load(spec.id, org_id)
+        if existing:
+            spec.version = existing.version + 1
+        self.workflows.save(spec, org_id)
+        return {"workflow": spec, "induced_by": induced_by,
+                "problems": spec.validate_references(),
+                "parameter_report": report.model_dump()}

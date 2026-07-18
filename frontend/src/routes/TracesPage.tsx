@@ -12,6 +12,15 @@ export function TracesPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showHow, setShowHow] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   async function load() {
     try {
@@ -37,6 +46,21 @@ export function TracesPage() {
     setError(null);
     try {
       const res = await api.induce(traceId, true);
+      nav(`/workflows/${res.workflow.id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? String(e.detail) : String(e));
+      setInducing(null);
+    }
+  }
+
+  async function induceMulti() {
+    setInducing("__multi__");
+    setError(null);
+    try {
+      const res = await api.induceMulti([...selected], true);
+      const varied = res.parameter_report.fields.filter((f) => f.varies).length;
+      const constant = res.parameter_report.fields.length - varied;
+      setNotice(`✓ Learned from ${selected.size} recordings — ${varied} value(s) vary (parameters), ${constant} stayed constant (literals).`);
       nav(`/workflows/${res.workflow.id}`);
     } catch (e) {
       setError(e instanceof ApiError ? String(e.detail) : String(e));
@@ -127,6 +151,20 @@ export function TracesPage() {
       )}
 
       <div className="section-h">Recorded demonstrations</div>
+      <p className="page-sub" style={{ marginTop: -8 }}>
+        Tip: record the same task twice with different data and select both —
+        Understudy diffs them to learn which values are parameters vs. constants.
+      </p>
+      {selected.size >= 2 && (
+        <div className="banner info" style={{ justifyContent: "space-between" }}>
+          <div><strong>{selected.size} recordings selected.</strong> Learn one workflow
+            from all of them — only the values that vary become parameters.</div>
+          <button className="btn primary sm" disabled={inducing !== null}
+                  onClick={induceMulti}>
+            {inducing === "__multi__" ? "Learning…" : `Learn from ${selected.size} recordings →`}
+          </button>
+        </div>
+      )}
       {traces === null ? (
         <SkeletonList rows={3} />
       ) : traces.length === 0 ? (
@@ -138,6 +176,10 @@ export function TracesPage() {
         <div className="card">
           {traces.map((t) => (
             <div className="row" key={t.id}>
+              <input type="checkbox" checked={selected.has(t.id)}
+                     onChange={() => toggle(t.id)}
+                     aria-label={`Select ${t.name} for multi-trace learning`}
+                     style={{ width: 16, height: 16, flex: "none" }} />
               <div className="grow">
                 <div className="title">
                   <a href={`/traces/${t.id}`}
