@@ -28,6 +28,16 @@ templates.env.filters["status_class"] = lambda s: _STATUS_CLASS.get(s, "posted")
 PORTAL_BRAND = {"brand_name": "Vendra", "brand_color": "#31589c"}
 ERP_BRAND = {"brand_name": "LedgerOne", "brand_color": "#1f7a5c"}
 
+# Single source of truth for the workspace's apps. Surfaced to the in-page
+# recorder (as window.__understudyApps via base.html) so its "Go to app"
+# switcher is data-driven — add an app here and it appears in the recorder with
+# no JS change. In a real product this would come from the org's connected apps.
+MOCK_APPS = [
+    {"label": PORTAL_BRAND["brand_name"], "path": "/portal"},
+    {"label": ERP_BRAND["brand_name"], "path": "/erp"},
+]
+templates.env.globals["mock_apps"] = MOCK_APPS
+
 router = APIRouter()
 
 

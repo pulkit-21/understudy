@@ -62,6 +62,7 @@
 </header>
 <main>{% block body %}{% endblock %}</main>
 <!-- Understudy in-browser recorder + rrweb session replay: inert unless recording -->
+<script>window.__understudyApps = {{ mock_apps | tojson }};</script>
 <script src="/rrweb.min.js"></script>
 <script src="/recorder.js" defer></script>
 </body>

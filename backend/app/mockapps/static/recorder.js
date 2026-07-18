@@ -19,12 +19,12 @@
   const EVENTS = "understudy_rec_events"; // [SemanticEvent]
   const TOKEN = "understudy_token";
 
-  // The workspace's known apps, offered as quick jumps in the recorder chrome.
-  // (In a real product this would come from the org's connected apps.)
-  const APPS = [
-    { label: "Vendra", path: "/portal" },
-    { label: "LedgerOne", path: "/erp" },
-  ];
+  // The workspace's apps, offered as quick jumps in the recorder chrome. Served
+  // into the page from the backend registry (mockapps.MOCK_APPS) — data-driven,
+  // not hard-coded here. Fallback keeps the recorder working if it's absent.
+  const APPS = (Array.isArray(window.__understudyApps) && window.__understudyApps.length)
+    ? window.__understudyApps
+    : [{ label: "Vendra", path: "/portal" }, { label: "LedgerOne", path: "/erp" }];
 
   const load = (k, d) => { try { return JSON.parse(sessionStorage.getItem(k)) ?? d; } catch { return d; } };
   const save = (k, v) => sessionStorage.setItem(k, JSON.stringify(v));
