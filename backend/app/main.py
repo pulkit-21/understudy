@@ -31,6 +31,7 @@ from .container import auth, runs, traces, workflows
 from .mockapps.routes import router as mockapps_router
 from .ratelimit import limiter
 from .seed import seed_demo_account, seed_if_empty
+from .services.errors import register_error_handlers
 
 # The singletons are constructed in container.py (the composition root). `auth`,
 # `traces`, and `workflows` are used below; `runs` (and `app`) are re-exported
@@ -102,6 +103,9 @@ def create_app() -> FastAPI:
         CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # domain errors raised by the service layer -> HTTP status codes
+    register_error_handlers(app)
 
     # routers: mock apps, auth, then the domain API surface
     app.include_router(mockapps_router)

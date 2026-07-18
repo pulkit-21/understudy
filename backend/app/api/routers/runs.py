@@ -1,23 +1,22 @@
-"""Runs — starting single/batch runs, the approval gate (approve/reject),
-retry, and the live SSE audit stream. Starting a run never bypasses a gate; a
-run pauses at any step flagged requires_approval and only a human resumes it."""
+"""Runs — start single/batch runs, the approval gate, retry, and the live SSE
+audit stream. Thin controllers over RunService; the SSE endpoint stays here
+because it is inherently HTTP (Request lifecycle + StreamingResponse)."""
 from __future__ import annotations
 
 import asyncio
 import json
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from ...executor.manager import RunManager
-from ...models.workflow import WorkflowSpec
 from ...ratelimit import limiter
+from ...services.runs import RunService
 from ..deps import (
     User,
     current_user,
+    get_run_service,
     get_runs,
-    get_workflows,
     user_from_token,
 )
 from ..schemas import BatchBody, RunBody
@@ -25,100 +24,58 @@ from ..schemas import BatchBody, RunBody
 router = APIRouter(prefix="/api", tags=["runs"])
 
 
-def _launch(runs: RunManager, spec: WorkflowSpec, params: dict[str, str],
-            org_id: str, batch_id: str | None = None):
-    missing = [p.key for p in spec.parameters
-               if p.required and p.key not in params]
-    if missing:
-        raise HTTPException(422, detail=f"missing parameters: {missing}")
-    return runs.start_run(spec, params, org_id, batch_id=batch_id)
-
-
 @router.post("/workflows/{wf_id}/runs")
 @limiter.limit("30/minute")
 async def start_run(wf_id: str, body: RunBody, request: Request,
                     user: User = Depends(current_user),
-                    runs: RunManager = Depends(get_runs),
-                    workflows=Depends(get_workflows)):
+                    svc: RunService = Depends(get_run_service)):
     # async so RunManager.start_run's asyncio.create_task has a running loop.
-    spec = workflows.load(wf_id, user.org_id)
-    if not spec:
-        raise HTTPException(404)
-    run = _launch(runs, spec, body.params, user.org_id)
-    return {"run_id": run.id}
+    return {"run_id": svc.start(wf_id, body.params, user.org_id).id}
 
 
 @router.post("/workflows/{wf_id}/batch")
 @limiter.limit("10/minute")
 async def start_batch(wf_id: str, body: BatchBody, request: Request,
                       user: User = Depends(current_user),
-                      runs: RunManager = Depends(get_runs),
-                      workflows=Depends(get_workflows)):
-    """Run a workflow over many inputs at once (e.g. a list of invoice ids).
-    Each becomes its own governed run; the bounded worker pool throttles how
-    many execute simultaneously."""
-    spec = workflows.load(wf_id, user.org_id)
-    if not spec:
-        raise HTTPException(404)
-    key = body.param_key or (spec.parameters[0].key
-                             if spec.parameters else None)
-    if key is None:
-        raise HTTPException(422, "workflow has no parameter to vary")
-    batch_id = "batch-" + uuid4().hex[:10]
-    run_ids = [_launch(runs, spec, {**body.defaults, key: v}, user.org_id,
-                       batch_id=batch_id).id
-               for v in body.param_values]
-    return {"batch_id": batch_id, "run_ids": run_ids, "count": len(run_ids)}
+                      svc: RunService = Depends(get_run_service)):
+    return svc.start_batch(wf_id, body.param_values, body.param_key,
+                           body.defaults, user.org_id)
 
 
 @router.get("/runs")
 def list_runs(user: User = Depends(current_user),
               status: str | None = None, batch_id: str | None = None,
-              runs: RunManager = Depends(get_runs)):
-    statuses = [status] if status else None
-    return runs.list(user.org_id, statuses=statuses, batch_id=batch_id)
+              svc: RunService = Depends(get_run_service)):
+    return svc.list(user.org_id, status=status, batch_id=batch_id)
 
 
 @router.post("/runs/{run_id}/retry")
 @limiter.limit("30/minute")
 async def retry_run(run_id: str, request: Request,
                     user: User = Depends(current_user),
-                    runs: RunManager = Depends(get_runs),
-                    workflows=Depends(get_workflows)):
-    prev = runs.get(run_id, user.org_id)
-    if prev is None:
-        raise HTTPException(404)
-    spec = workflows.load(prev.workflow_id, user.org_id)
-    if spec is None:
-        raise HTTPException(409, "the workflow no longer exists")
-    run = _launch(runs, spec, prev.params, user.org_id)
-    return {"run_id": run.id}
+                    svc: RunService = Depends(get_run_service)):
+    return {"run_id": svc.retry(run_id, user.org_id).id}
 
 
 @router.get("/runs/{run_id}")
 def get_run(run_id: str, user: User = Depends(current_user),
-            runs: RunManager = Depends(get_runs)):
-    run = runs.get(run_id, user.org_id)
-    if not run:
-        raise HTTPException(404)
-    return run
+            svc: RunService = Depends(get_run_service)):
+    return svc.get(run_id, user.org_id)
 
 
 @router.post("/runs/{run_id}/approve")
 async def approve(run_id: str, user: User = Depends(current_user),
-                  runs: RunManager = Depends(get_runs)):
+                  svc: RunService = Depends(get_run_service)):
     # async so the asyncio.Event is set on the loop thread and reliably wakes the
     # paused runner (a threadpool set() can miss the waiter).
-    if not runs.approve(run_id, user.org_id):
-        raise HTTPException(409, "run is not active")
+    svc.approve(run_id, user.org_id)
     return {"ok": True}
 
 
 @router.post("/runs/{run_id}/reject")
 async def reject(run_id: str, user: User = Depends(current_user),
-                 runs: RunManager = Depends(get_runs)):
-    if not runs.reject(run_id, user.org_id):
-        raise HTTPException(409, "run is not active")
+                 svc: RunService = Depends(get_run_service)):
+    svc.reject(run_id, user.org_id)
     return {"ok": True}
 
 

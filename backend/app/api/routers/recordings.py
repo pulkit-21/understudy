@@ -1,15 +1,19 @@
 """Recording — spawns a headful demonstration browser on the *local* host. On a
 headless server the in-page recorder (served into the mock apps) is used instead
-and POSTs its trace to /api/traces."""
+and POSTs its trace to /api/traces.
+
+This is infrastructure, not a domain use-case (it owns a live browser process),
+so it stays a router over process-local state rather than a service."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...config import get_settings
-from ...db.repositories import TraceRepo
 from ...ratelimit import limiter
 from ...recorder.session import RecordingSession
-from ..deps import User, current_user, get_traces
+from ...services.errors import NotFound
+from ...services.traces import TraceService
+from ..deps import User, current_user, get_trace_service
 from ..schemas import StartRecordingBody
 
 router = APIRouter(prefix="/api", tags=["recordings"])
@@ -51,11 +55,9 @@ def list_recordings(user: User = Depends(current_user)):
 @router.post("/recordings/{recording_id}/stop")
 async def stop_recording(recording_id: str,
                          user: User = Depends(current_user),
-                         traces: TraceRepo = Depends(get_traces)):
+                         traces: TraceService = Depends(get_trace_service)):
     session = _active.pop(recording_id, None)
     if session is None:
-        raise HTTPException(404, "no active recording with that id")
+        raise NotFound("no active recording with that id")
     trace = await session.stop()
-    traces.save(trace, user.org_id)
-    return {"trace_id": trace.id, "name": trace.name,
-            "events": len(trace.events)}
+    return traces.save(trace, user.org_id)
