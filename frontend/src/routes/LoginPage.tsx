@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ApiError } from "../api";
-import { useAuth } from "../auth";
-import { Icon } from "../Icon";
+import { ApiError } from "../lib/api";
+import { useAuth } from "../lib/auth";
+import { Icon } from "../components/Icon";
 
 const DEMO_EMAIL = "demo@understudy.app";
 const DEMO_PASSWORD = "understudy";

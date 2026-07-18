@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, WorkflowSpec } from "./api";
+import { api, WorkflowSpec } from "../lib/api";
 import { Icon } from "./Icon";
 
 export interface Command {

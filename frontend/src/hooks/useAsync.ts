@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ApiError } from "../api";
+import { ApiError } from "../lib/api";
 
 export interface AsyncState<T> {
   data: T | null;

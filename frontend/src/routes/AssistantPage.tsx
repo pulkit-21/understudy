@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { AgentCard, AgentStep, api, ApiError, ChatMsg } from "../api";
-import { Icon } from "../Icon";
+import { AgentCard, AgentStep, api, ApiError, ChatMsg } from "../lib/api";
+import { Icon } from "../components/Icon";
 
 const SUGGESTIONS = [
   "What workflows do I have?",

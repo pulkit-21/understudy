@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api";
+import { api } from "../lib/api";
 import { useAsync } from "../hooks/useAsync";
-import { SkeletonList } from "../Skeleton";
+import { SkeletonList } from "../components/Skeleton";
 
 function when(ts: string) {
   try { return new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }); }

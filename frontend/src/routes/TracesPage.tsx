@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { api, ApiError, TraceSummary, WorkflowSpec } from "../api";
-import { SkeletonList } from "../Skeleton";
+import { api, ApiError, TraceSummary, WorkflowSpec } from "../lib/api";
+import { SkeletonList } from "../components/Skeleton";
 
 export function TracesPage() {
   const nav = useNavigate();

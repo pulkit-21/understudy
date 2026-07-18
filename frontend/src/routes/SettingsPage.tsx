@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, AuthUser, UsageEntry } from "../api";
-import { useAuth } from "../auth";
+import { api, ApiError, AuthUser, UsageEntry } from "../lib/api";
+import { useAuth } from "../lib/auth";
 
 export function SettingsPage() {
   const { user, logout } = useAuth();

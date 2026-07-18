@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, ApiError, Run, RunEvent, RunStatus } from "../api";
+import { api, ApiError, Run, RunEvent, RunStatus } from "../lib/api";
 
 const KIND_TO_STATUS: Record<string, RunStatus> = {
   awaiting_approval: "awaiting_approval",

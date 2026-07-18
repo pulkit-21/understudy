@@ -1,6 +1,6 @@
-import { api } from "../api";
+import { api } from "../lib/api";
 import { useAsync } from "../hooks/useAsync";
-import { SkeletonList } from "../Skeleton";
+import { SkeletonList } from "../components/Skeleton";
 
 function initials(name: string, email: string) {
   const n = (name || email || "?").trim();

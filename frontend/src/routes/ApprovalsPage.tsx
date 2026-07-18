@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, ApiError, RunSummary } from "../api";
-import { SkeletonList } from "../Skeleton";
+import { api, ApiError, RunSummary } from "../lib/api";
+import { SkeletonList } from "../components/Skeleton";
 
 export function ApprovalsPage() {
   const nav = useNavigate();

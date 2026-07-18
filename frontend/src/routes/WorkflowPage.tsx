@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   api, ApiError, WorkflowSpec, WorkflowStatusT, WorkflowStep, WorkflowVersion,
-} from "../api";
+} from "../lib/api";
 
 function ValueChip({ value }: { value: string }) {
   const ex = value.match(/^\{\{\s*extract\.([\w.]+)\s*\}\}$/);

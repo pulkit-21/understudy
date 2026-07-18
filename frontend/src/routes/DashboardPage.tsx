@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, ApiError, DashboardData } from "../api";
-import { Icon } from "../Icon";
+import { api, ApiError, DashboardData } from "../lib/api";
+import { Icon } from "../components/Icon";
 
 function Stat({ label, value, hint, accent, icon }: {
   label: string; value: string; hint?: string; accent?: string; icon: string;

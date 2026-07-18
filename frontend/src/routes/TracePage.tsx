@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Replayer } from "rrweb";
 import "rrweb/dist/style.css";
-import { api, ApiError, Trace } from "../api";
+import { api, ApiError, Trace } from "../lib/api";
 
 function path(url: string) {
   try { return new URL(url).pathname; } catch { return url; }
