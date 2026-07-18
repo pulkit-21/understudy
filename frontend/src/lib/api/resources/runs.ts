@@ -1,4 +1,4 @@
-import { auth, req } from "../http";
+import { req } from "../http";
 import { Run, RunSummary } from "../types";
 
 export const runsApi = {
@@ -25,7 +25,10 @@ export const runsApi = {
   reject: (id: string) =>
     req<{ ok: boolean }>(`/api/runs/${id}/reject`, { method: "POST" }),
 
-  // token in the query because EventSource can't send an auth header
-  runEventsUrl: (id: string) =>
-    `/api/runs/${id}/events?token=${encodeURIComponent(auth.get() ?? "")}`,
+  // SSE: mint a short-lived, run-scoped ticket (bearer-authed POST), then open
+  // the stream with it — the 7-day JWT never goes in the URL.
+  mintStreamTicket: (id: string) =>
+    req<{ ticket: string }>(`/api/runs/${id}/events/ticket`, { method: "POST" }),
+  runEventsUrl: (id: string, ticket: string) =>
+    `/api/runs/${id}/events?ticket=${encodeURIComponent(ticket)}`,
 };

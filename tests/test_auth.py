@@ -62,3 +62,26 @@ def test_tenants_are_isolated_over_http():
                for t in client.get("/api/traces", headers=ha).json())
     assert client.get("/api/traces", headers=hb).json() == []
     assert client.get("/api/traces/t-secret", headers=hb).status_code == 404
+
+
+def test_sse_stream_ticket_is_scoped_and_not_a_bearer(org_id):
+    """H2: the SSE ticket is short-lived, bound to one run, and one-directional —
+    it can't be replayed as a general bearer, and a bearer can't act as a ticket."""
+    from app.auth import (
+        issue_token,
+        mint_stream_ticket,
+        user_from_stream_ticket,
+        user_from_token,
+    )
+    from app.main import auth
+
+    user = auth.create_user("sse-scope@example.com", "password123", "S", org_id)
+    ticket = mint_stream_ticket(user, "run-123")
+
+    # valid only for the run it was minted for
+    assert user_from_stream_ticket(ticket, "run-123").id == user.id
+    assert user_from_stream_ticket(ticket, "run-999") is None
+    # a leaked ticket is NOT a general credential
+    assert user_from_token(ticket) is None
+    # and a normal bearer token is NOT accepted as a stream ticket
+    assert user_from_stream_ticket(issue_token(user), "run-123") is None

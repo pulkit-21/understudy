@@ -252,13 +252,12 @@ def test_sse_replays_full_history_for_a_late_subscriber(org_id):
     JWT arrives as ?token= because EventSource can't set headers."""
     from fastapi.testclient import TestClient
 
-    from app.auth import issue_token
+    from app.auth import mint_stream_ticket
     from app.engine.runner import RunEvent
     from app.main import app, auth
     from app.main import runs as run_manager
 
     user = auth.create_user("sse@example.com", "password123", "S", org_id)
-    token = issue_token(user)
     client = TestClient(app)
 
     run = Run(workflow_id="wf-x", params={"invoice_id": "INV-1005"})
@@ -271,10 +270,14 @@ def test_sse_replays_full_history_for_a_late_subscriber(org_id):
     run.status = RunStatus.COMPLETED
     run_manager.repo.save(run, org_id)  # persist so the endpoint hydrates it
 
-    body = client.get(f"/api/runs/{run.id}/events?token={token}").text
+    ticket = mint_stream_ticket(user, run.id)   # short-lived, run-scoped
+    body = client.get(f"/api/runs/{run.id}/events?ticket={ticket}").text
     assert "open portal" in body
     assert "amount = '18990.00'" in body
     assert "Human approved." in body
     assert "Workflow completed." in body
-    # and without a token it's unauthorized
+    assert '"kind": "stream_end"' in body        # finished run closes cleanly
+    # no ticket -> unauthorized; a ticket for a DIFFERENT run -> rejected
     assert client.get(f"/api/runs/{run.id}/events").status_code == 401
+    other = mint_stream_ticket(user, "some-other-run")
+    assert client.get(f"/api/runs/{run.id}/events?ticket={other}").status_code == 401

@@ -24,32 +24,69 @@ export function RunPage() {
   const [frame, setFrame] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [streamState, setStreamState] =
+    useState<"connecting" | "live" | "reconnecting" | "ended" | "lost">("connecting");
   const logEnd = useRef<HTMLDivElement>(null);
+  const sawStreamStatus = useRef(false);
 
   // Snapshot for params / workflow link / initial status.
   useEffect(() => {
     api.getRun(id)
-      .then((r) => { setRun(r); setStatus(r.status); setExtracts(r.extracts); })
+      .then((r) => {
+        setRun(r);
+        setExtracts(r.extracts);
+        // don't clobber a newer status the live stream already delivered
+        if (!sawStreamStatus.current) setStatus(r.status);
+      })
       .catch((e) => setError(e instanceof ApiError ? String(e.detail) : String(e)));
   }, [id]);
 
-  // Live audit log via SSE (the backend replays history, then streams live).
+  // Live audit log via SSE. Mint a short-lived run-scoped ticket, open the
+  // stream, and reconnect with backoff on a dropped connection (re-minting the
+  // ticket each time) — the backend replays history and closes with stream_end.
   useEffect(() => {
-    const es = new EventSource(api.runEventsUrl(id));
+    let es: EventSource | null = null;
+    let done = false;   // stream_end or unmount — stop reconnecting for good
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     setEvents([]);
-    es.onmessage = (m) => {
-      const evt = JSON.parse(m.data);
-      if (evt.kind === "stream_end") { es.close(); return; }
-      if (evt.kind === "frame") { setFrame(evt.detail); return; }  // live view, not logged
-      setEvents((prev) => [...prev, evt as RunEvent]);
-      if (KIND_TO_STATUS[evt.kind]) setStatus(KIND_TO_STATUS[evt.kind]);
-      if (evt.kind === "extracted") {
-        const m2 = /^(\w+) = (.*)$/.exec(evt.detail);
-        if (m2) setExtracts((p) => ({ ...p, [m2[1]]: m2[2].replace(/^'|'$/g, "") }));
+    setStreamState("connecting");
+
+    async function connect() {
+      if (done) return;
+      let ticket: string;
+      try {
+        ticket = (await api.mintStreamTicket(id)).ticket;
+      } catch {
+        scheduleReconnect();
+        return;
       }
-    };
-    es.onerror = () => es.close();
-    return () => es.close();
+      if (done) return;
+      es = new EventSource(api.runEventsUrl(id, ticket));
+      es.onopen = () => { attempts = 0; setStreamState("live"); };
+      es.onmessage = (m) => {
+        let evt: { kind: string; detail?: string };
+        try { evt = JSON.parse(m.data); } catch { return; }  // ignore a malformed frame
+        if (evt.kind === "stream_end") { done = true; setStreamState("ended"); es?.close(); return; }
+        if (evt.kind === "frame") { setFrame(evt.detail ?? null); return; }  // live view, not logged
+        setEvents((prev) => [...prev, evt as unknown as RunEvent]);
+        if (KIND_TO_STATUS[evt.kind]) { sawStreamStatus.current = true; setStatus(KIND_TO_STATUS[evt.kind]); }
+        if (evt.kind === "extracted" && evt.detail) {
+          const m2 = /^(\w+) = (.*)$/.exec(evt.detail);
+          if (m2) setExtracts((p) => ({ ...p, [m2[1]]: m2[2].replace(/^'|'$/g, "") }));
+        }
+      };
+      es.onerror = () => { es?.close(); es = null; scheduleReconnect(); };
+    }
+    function scheduleReconnect() {
+      if (done) return;
+      attempts += 1;
+      if (attempts > 5) { setStreamState("lost"); return; }  // surface it, don't freeze silently
+      setStreamState("reconnecting");
+      timer = setTimeout(connect, Math.min(1000 * attempts, 5000));
+    }
+    connect();
+    return () => { done = true; es?.close(); if (timer) clearTimeout(timer); };
   }, [id]);
 
   useEffect(() => { logEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [events]);
@@ -111,6 +148,13 @@ export function RunPage() {
       </p>
 
       {error && <div className="banner error">{error}</div>}
+
+      {!terminal && streamState === "reconnecting" && (
+        <div className="banner warn"><span>⟳</span><div>Reconnecting to the live stream…</div></div>
+      )}
+      {!terminal && streamState === "lost" && (
+        <div className="banner warn"><span>⚠</span><div>Live stream lost. Refresh to resume — the run continues on the server.</div></div>
+      )}
 
       {awaiting && (
         <div className="gatebar">

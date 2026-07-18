@@ -27,6 +27,11 @@ from .db.models import OrgRow, UserRow
 JWT_SECRET = get_settings().jwt_secret
 JWT_ALG = "HS256"
 TOKEN_TTL = timedelta(days=7)
+# Short-lived, single-run, read-only ticket for the SSE stream. EventSource can't
+# send an Authorization header, so a credential must ride in the URL — but the
+# 7-day bearer JWT there would leak into logs/history and be replayable against
+# the whole API. This ticket is scoped to one run and expires in a minute.
+STREAM_TICKET_TTL = timedelta(minutes=1)
 
 SessionFactory = Callable[[], Session]
 
@@ -144,12 +149,36 @@ def bind_auth_repo(repo: AuthRepo) -> None:
 
 
 def user_from_token(token: str) -> User | None:
-    """Resolve a raw JWT to a user, or None. Used by the SSE endpoint, where the
-    browser EventSource API can't send an Authorization header so the token
-    arrives as a query param instead."""
+    """Resolve a raw bearer JWT to a user, or None. Rejects SSE stream tickets
+    (typ=sse) so a leaked ticket can't be replayed as a general credential."""
     try:
         payload = decode_token(token)
     except jwt.PyJWTError:
+        return None
+    if payload.get("typ") == "sse":
+        return None
+    assert _auth_repo is not None
+    return _auth_repo.get_user(payload.get("sub", ""))
+
+
+def mint_stream_ticket(user: User, run_id: str) -> str:
+    """A short-lived JWT scoped to one run's SSE stream (typ=sse). It cannot be
+    replayed against the rest of the API — see user_from_stream_ticket."""
+    now = datetime.now(UTC)
+    payload = {"sub": user.id, "run": run_id, "typ": "sse",
+               "iat": now, "exp": now + STREAM_TICKET_TTL}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
+
+
+def user_from_stream_ticket(ticket: str, run_id: str) -> User | None:
+    """Resolve an SSE ticket to a user, but only for the run it was minted for.
+    Rejects ordinary bearer JWTs (they lack typ=sse), so a leaked ticket can't
+    be used as a general credential and vice-versa."""
+    try:
+        payload = decode_token(ticket)
+    except jwt.PyJWTError:
+        return None
+    if payload.get("typ") != "sse" or payload.get("run") != run_id:
         return None
     assert _auth_repo is not None
     return _auth_repo.get_user(payload.get("sub", ""))

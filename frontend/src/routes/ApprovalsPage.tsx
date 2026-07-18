@@ -19,16 +19,16 @@ export function ApprovalsPage() {
   async function decide(id: string, kind: "approve" | "reject") {
     setActing(id);
     setError(null);
-    // Optimistic: drop the row immediately so the queue feels instant. Restore
-    // it (via reload) only if the call fails.
-    const before = runs;
+    // Optimistic: drop just this row so the queue feels instant. Reconcile with
+    // the server on BOTH paths (never restore a stale snapshot — with two
+    // in-flight decisions the snapshot would resurrect an already-approved row).
     setRuns((rs) => (rs ? rs.filter((r) => r.id !== id) : rs));
     try {
       await (kind === "approve" ? api.approve(id) : api.reject(id));
-      setTimeout(load, 400);  // reconcile with server truth once the run settles
+      setTimeout(load, 400);  // let the run settle, then reconcile
     } catch (e) {
       setError(e instanceof ApiError ? String(e.detail) : String(e));
-      setRuns(before);        // rollback the optimistic removal
+      load();                 // reconcile: re-fetch the true queue, not a snapshot
     } finally {
       setActing(null);
     }

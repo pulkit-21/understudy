@@ -9,6 +9,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from ...auth import mint_stream_ticket, user_from_stream_ticket
 from ...engine.manager import RunManager
 from ...ratelimit import limiter
 from ...services.runs import RunService
@@ -17,7 +18,6 @@ from ..deps import (
     current_user,
     get_run_service,
     get_runs,
-    user_from_token,
 )
 from ..schemas import BatchBody, RunBody
 
@@ -79,14 +79,25 @@ async def reject(run_id: str, user: User = Depends(current_user),
     return {"ok": True}
 
 
+@router.post("/runs/{run_id}/events/ticket")
+def run_events_ticket(run_id: str, user: User = Depends(current_user),
+                      svc: RunService = Depends(get_run_service)):
+    """Mint a short-lived, single-run SSE ticket (bearer-authed). The browser
+    then opens the stream with ?ticket=… instead of putting the 7-day JWT in
+    the URL. svc.get raises NotFound if the run isn't the caller's."""
+    svc.get(run_id, user.org_id)
+    return {"ticket": mint_stream_ticket(user, run_id)}
+
+
 @router.get("/runs/{run_id}/events")
-async def run_events(run_id: str, request: Request, token: str | None = None,
+async def run_events(run_id: str, request: Request, ticket: str | None = None,
                      runs: RunManager = Depends(get_runs)):
-    """SSE stream of the run's audit log, live. The browser EventSource API
-    can't set an Authorization header, so the JWT arrives as ?token=."""
-    user = user_from_token(token) if token else None
+    """SSE stream of the run's audit log, live. EventSource can't send an
+    Authorization header, so a short-lived run-scoped ticket rides in ?ticket=
+    (minted by POST /runs/{id}/events/ticket)."""
+    user = user_from_stream_ticket(ticket, run_id) if ticket else None
     if user is None:
-        raise HTTPException(401, "missing or invalid token")
+        raise HTTPException(401, "missing or invalid stream ticket")
     run = runs.get(run_id, user.org_id)
     if run is None:
         raise HTTPException(404)
@@ -96,6 +107,10 @@ async def run_events(run_id: str, request: Request, token: str | None = None,
         for evt in run.events:  # replay history for late subscribers
             yield f"data: {evt.model_dump_json()}\n\n"
         if queue is None:
+            # not a live run (already finished / not owned in memory) — tell the
+            # client the stream is done so it closes cleanly instead of seeing a
+            # bare disconnect and trying to reconnect.
+            yield f"data: {json.dumps({'kind': 'stream_end'})}\n\n"
             return
         while True:
             if await request.is_disconnected():

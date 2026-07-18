@@ -1303,3 +1303,31 @@ test; 120 → **124 tests**, ruff + mypy + import-linter clean.
 Remaining review items (SSE token-in-URL, SSE reconnect, optimistic-rollback
 concurrency, account enumeration, and the LOW tail) are triaged in the review and
 not yet applied.
+
+---
+
+## D51 — Fixes from the code review (batch 2: SSE + approvals)
+
+- **H2 — 7-day JWT was passed in the SSE URL query string.** Replaced with a
+  short-lived (1 min), single-run, read-only **stream ticket** (`typ=sse`). The
+  browser mints one via `POST /runs/{id}/events/ticket` (bearer-authed) and
+  opens the stream with `?ticket=`. The ticket is one-directional: it's only
+  valid for the run it names, and `user_from_token` rejects `typ=sse` so a
+  leaked ticket can't be replayed as a general credential. Exposure window went
+  from 7 days (whole API) to 1 minute (one run's read-only stream).
+- **M3 — SSE closed permanently on any transient error.** `RunPage` now manages
+  the connection: mint ticket → open → on drop, reconnect with backoff
+  (re-minting the ticket), capped at 5 attempts, surfacing a
+  "reconnecting"/"lost" banner instead of silently freezing. The backend now
+  emits a `stream_end` sentinel for finished/historical runs too, so the client
+  closes cleanly instead of looping. Malformed frames are ignored (guarded
+  `JSON.parse`), and a late `getRun` snapshot no longer clobbers a newer
+  streamed status.
+- **M4 — optimistic approval rollback resurrected already-approved rows.** The
+  approvals queue no longer restores a stale pre-action snapshot on failure; it
+  reconciles by re-fetching the true queue on both success and failure.
+
+125 tests green (regression tests for the ticket scoping + history replay +
+stream_end); ruff + mypy + import-linter clean; verified end-to-end in the
+docker-compose stack (ticket POST + `?ticket=` stream, no token in any URL, no
+console errors).
