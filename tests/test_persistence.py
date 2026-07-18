@@ -7,7 +7,7 @@ Run against the temp SQLite DB from conftest (schema reset per test).
 from __future__ import annotations
 
 from app.db import RunRepo, SessionLocal, TraceRepo, WorkflowRepo
-from app.executor.runner import Run, RunEvent, RunStatus
+from app.engine.runner import Run, RunEvent, RunStatus
 from app.induction.heuristic import induce_heuristic
 
 

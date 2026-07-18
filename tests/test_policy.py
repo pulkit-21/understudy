@@ -17,7 +17,7 @@ from app.domain.workflow import (
     WorkflowSpec,
     WorkflowStep,
 )
-from app.executor.runner import Run, Runner, RunStatus
+from app.engine.runner import Run, Runner, RunStatus
 from tests.test_executor import FakeSink
 
 

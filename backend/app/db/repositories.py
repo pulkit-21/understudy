@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..domain.trace import Trace
 from ..domain.workflow import WorkflowSpec
-from ..executor.runner import Run
+from ..engine.runner import Run
 from .models import (
     ConversationRow,
     ReplayRow,

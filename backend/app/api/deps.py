@@ -22,7 +22,7 @@ from ..db.repositories import (
     UsageRepo,
     WorkflowRepo,
 )
-from ..executor.manager import RunManager
+from ..engine.manager import RunManager
 from ..services.agent import AgentService
 from ..services.induction import InductionService
 from ..services.metrics import MetricsService

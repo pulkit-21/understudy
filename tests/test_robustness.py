@@ -24,7 +24,7 @@ from app.domain.workflow import (
     WorkflowSpec,
     WorkflowStep,
 )
-from app.executor.runner import (
+from app.engine.runner import (
     PlaywrightSink,
     Run,
     Runner,
@@ -253,7 +253,7 @@ def test_sse_replays_full_history_for_a_late_subscriber(org_id):
     from fastapi.testclient import TestClient
 
     from app.auth import issue_token
-    from app.executor.runner import RunEvent
+    from app.engine.runner import RunEvent
     from app.main import app, auth
     from app.main import runs as run_manager
 

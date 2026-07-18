@@ -7,7 +7,7 @@ import pytest
 
 from app.agent import AgentTools, tool_schemas
 from app.db import SessionLocal, TraceRepo, UsageRepo, WorkflowRepo
-from app.executor.runner import RunStatus
+from app.engine.runner import RunStatus
 from app.induction.heuristic import induce_heuristic
 
 

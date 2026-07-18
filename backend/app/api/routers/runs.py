@@ -9,7 +9,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from ...executor.manager import RunManager
+from ...engine.manager import RunManager
 from ...ratelimit import limiter
 from ...services.runs import RunService
 from ..deps import (

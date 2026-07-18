@@ -3,7 +3,7 @@ meter."""
 from __future__ import annotations
 
 from ..db.repositories import UsageRepo, WorkflowRepo
-from ..executor.manager import RunManager
+from ..engine.manager import RunManager
 
 # Manual effort saved per successfully auto-posted invoice (~90 seconds).
 _MINUTES_SAVED_PER_RUN = 1.5

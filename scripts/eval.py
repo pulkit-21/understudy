@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import uvicorn
 
-from app.executor.runner import PlaywrightSink, Run, Runner, RunStatus
+from app.engine.runner import PlaywrightSink, Run, Runner, RunStatus
 from app.induction.heuristic import induce_heuristic
 from app.main import app
 from app.mockapps.seed import ERP, INVOICES

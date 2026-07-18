@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.executor.runner import RunStatus
+from app.engine.runner import RunStatus
 
 
 @pytest.fixture()
@@ -83,7 +83,7 @@ def test_batch_requires_a_parameter(authed_client, demo_trace, stub_executor):
 def test_worker_pool_bounds_concurrency():
     """The semaphore caps simultaneous browsers regardless of how many runs
     are in flight."""
-    from app.executor.manager import RunManager
+    from app.engine.manager import RunManager
 
     mgr = RunManager(base_url="http://x", run_repo=None, max_concurrency=2)  # type: ignore[arg-type]
     assert mgr._sem._value == 2
