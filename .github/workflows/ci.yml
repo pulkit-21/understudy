@@ -24,6 +24,11 @@ jobs:
         run: ruff check backend scripts tests
       - name: Type-check (mypy)
         run: mypy backend
+      - name: Enforce layer boundaries (import-linter)
+        run: lint-imports
+        env:
+          PYTHONPATH: backend
+          UNDERSTUDY_AGENT_MOCK: "1"
       - name: Test (pytest)
         run: pytest -q
 

@@ -1228,3 +1228,40 @@ fragment cohesive aggregates for no benefit.
 
 120 tests green, ruff + mypy clean, frontend builds; migrated pages verified in
 a headless browser with zero console errors.
+
+---
+
+## D49 — Restructure to a production-standard layout (matching the reference bar)
+
+**Decision.** Reshape both stacks to the conventional layered structure a reviewer
+expects, benchmarked against the reference projects, keeping all 120 tests green
+through every move (one commit per rename).
+
+**Backend** (`backend/app/`) — a strict dependency-downward layering:
+`api/` (controllers) → `services/` (use-cases) → `repos/` (persistence) →
+`domain/` (pure models). Plus `clients/` (the single Anthropic I/O seam, which
+de-duplicated client construction), `prompts/` (system prompts lifted out of
+code), `engine/` (was `executor/`), `agents/` (the conversational agent), and
+`db/` (`session.py`, ORM, migrations). `models/`→`domain/`, `db/engine.py`→
+`db/session.py`. The layering is **CI-enforced by import-linter**: "domain has no
+outward dependencies" and "no upward imports (api→services→repos)".
+
+**Frontend** (`frontend/src/`) — `routes/` (screens), `components/` (shared UI:
+palette, tour, skeletons, icons), `lib/` (the api client + auth context),
+`hooks/` (`useAsync`), `styles/`.
+
+**Infra** — a real **docker-compose** dev stack (backend + frontend with live
+reload, `Dockerfile.dev` per stack), a docker-first **Makefile** (`make dev/up/
+down/test/lint/ci`), a rewritten **README** with HLD/LLD module maps and the
+layer rules, and a **`samples/`** directory exporting the trace + learned-workflow
+JSON so the data model is legible without running anything.
+
+**On file-per-model:** kept models grouped by aggregate (`domain/trace.py`,
+`domain/workflow.py`; ORM in `db/models.py`) — the idiomatic layout. One-class-
+per-file would fragment cohesive aggregates. `decisions.md` stays at the root:
+it's a required deliverable, not clutter.
+
+**Reasoning.** The logic was already layered; what was missing was the *shape* a
+reviewer reads structure from — findable modules, a composition root, an
+enforced dependency direction, and a one-command dev environment. import-linter
+turns the architecture from a claim into a build gate.
