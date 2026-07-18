@@ -3,12 +3,14 @@
 // focused modules (types, the http core, and one client per resource).
 
 export * from "./types";
+export type { Schedule } from "./resources/schedules";
 export { ApiError, auth, setUnauthorizedHandler } from "./http";
 
 import { agentApi } from "./resources/agent";
 import { authApi } from "./resources/auth";
 import { metricsApi } from "./resources/metrics";
 import { runsApi } from "./resources/runs";
+import { schedulesApi } from "./resources/schedules";
 import { tracesApi } from "./resources/traces";
 import { workflowsApi } from "./resources/workflows";
 
@@ -19,6 +21,7 @@ export const api = {
   ...tracesApi,
   ...workflowsApi,
   ...runsApi,
+  ...schedulesApi,
   ...metricsApi,
   ...agentApi,
 };

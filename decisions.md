@@ -1453,3 +1453,27 @@ Tests: drift traversal (a "moved" testid → missing, no actions taken) and the
 locator-reply parser (pure). Verified live: pre-flight on the invoice workflow
 resolved all 10 targets via testid. 135 → 137 tests; ruff + mypy + import-linter
 clean.
+
+---
+
+## D57 — Feature: scheduling & triggers
+
+**What.** Run a workflow on a recurring interval, unattended — while still
+pausing at its approval gate. A schedule automates *starting* work, never
+*approving* it (the gate is untouched).
+
+**How.** `ScheduleRow` (migration 0003) + `ScheduleRepo` (org-scoped CRUD, plus
+cross-org `due`/`mark_fired` for the scheduler). `services/scheduling.py`:
+`ScheduleService` (create/list/toggle/delete with guards) and `run_due(now, …)`
+— the pure-ish tick that fires each due schedule in its owning org and re-arms
+it (a missing workflow or launch error advances it anyway, so it can't spin).
+`scheduler_loop` runs it every `UNDERSTUDY_SCHEDULER_TICK_SECONDS`, started from
+the app lifespan only when `UNDERSTUDY_SCHEDULER_ENABLED` is set (off in tests).
+`POST/GET/DELETE /api/schedules` + `/toggle`, a Schedules page + nav + ⌘K entry.
+
+**Why it matters.** This is what makes Understudy feel like a "digital employee"
+(Zamp's Pace framing) rather than a button: it can watch for work and start it
+on its own, with the human gate intact. Tests cover repo CRUD + org-scoping, the
+due/fire/re-arm tick, the skip-a-deleted-workflow path, and the service guards
+(137 → 143). Verified live: schedule CRUD through the API + UI, scheduler loop
+running clean in the compose stack.

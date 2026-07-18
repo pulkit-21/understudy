@@ -8,7 +8,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from . import agent, induction, metrics, recordings, runs, traces, workflows
+from . import (
+    agent,
+    induction,
+    metrics,
+    recordings,
+    runs,
+    schedules,
+    traces,
+    workflows,
+)
 
 # Order is cosmetic (paths don't overlap across routers), but grouped read →
 # write for a tidy /docs.
@@ -18,6 +27,7 @@ all_routers: list[APIRouter] = [
     induction.router,
     workflows.router,
     runs.router,
+    schedules.router,
     metrics.router,
     agent.router,
 ]

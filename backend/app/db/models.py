@@ -13,7 +13,14 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -138,3 +145,23 @@ class RunRow(Base):
     params: Mapped[dict] = mapped_column(JSON, default=dict)
     cost_usd: Mapped[float] = mapped_column(default=0.0)
     payload: Mapped[dict] = mapped_column(JSON)
+
+
+class ScheduleRow(Base):
+    """A recurring, unattended trigger for a workflow. The scheduler starts a
+    run every `interval_minutes`; the run still pauses at its approval gate — a
+    schedule automates *starting* work, never *approving* it."""
+
+    __tablename__ = "schedules"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    org_id: Mapped[str] = mapped_column(String, index=True)
+    workflow_id: Mapped[str] = mapped_column(String, index=True)
+    params: Mapped[dict] = mapped_column(JSON, default=dict)
+    interval_minutes: Mapped[int] = mapped_column(Integer)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    next_run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                  index=True)

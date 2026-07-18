@@ -100,6 +100,13 @@ class Settings(BaseSettings):
         description="Expose destructive test/eval hooks (e.g. POST /erp/_reset). "
         "Off in production; the test suite and eval harness turn it on.",
     )
+    scheduler_enabled: bool = Field(
+        default=False,
+        description="Run the background scheduler that fires due schedules "
+        "(UNDERSTUDY_SCHEDULER_ENABLED). Off in tests.",
+    )
+    scheduler_tick_seconds: int = Field(
+        default=30, description="How often the scheduler checks for due schedules.")
     dev_mode: bool = Field(
         default=False,
         description="Explicit local-dev acknowledgement (UNDERSTUDY_DEV_MODE). "

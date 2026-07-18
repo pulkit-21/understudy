@@ -16,6 +16,7 @@ from .db import (
     ConversationRepo,
     ReplayRepo,
     RunRepo,
+    ScheduleRepo,
     SessionLocal,
     TraceRepo,
     UsageRepo,
@@ -38,6 +39,7 @@ workflows = WorkflowRepo(SessionLocal)
 usage = UsageRepo(SessionLocal)
 replays = ReplayRepo(SessionLocal)
 conversations = ConversationRepo(SessionLocal)
+schedules = ScheduleRepo(SessionLocal)
 runs = RunManager(
     base_url=settings.base_url,
     run_repo=RunRepo(SessionLocal),

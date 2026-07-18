@@ -7,7 +7,7 @@ short-lived session (open, do one thing, commit, close).
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -16,6 +16,7 @@ from ..db.models import (
     ConversationRow,
     ReplayRow,
     RunRow,
+    ScheduleRow,
     TraceRow,
     UsageRow,
     WorkflowRow,
@@ -356,3 +357,81 @@ class ConversationRepo:
             s.delete(row)
             s.commit()
             return True
+
+
+class ScheduleRepo:
+    """Recurring workflow triggers. Org-scoped for CRUD; the scheduler uses the
+    cross-org `due`/`mark_fired` to fire each in its owning org."""
+
+    def __init__(self, session_factory: SessionFactory):
+        self._sf = session_factory
+
+    def create(self, org_id: str, workflow_id: str, params: dict,
+               interval_minutes: int) -> dict:
+        from uuid import uuid4
+        with self._sf() as s:
+            now = _now()
+            row = ScheduleRow(
+                id="sch-" + uuid4().hex[:10], org_id=org_id,
+                workflow_id=workflow_id, params=params,
+                interval_minutes=interval_minutes, enabled=True, created_at=now,
+                last_run_at=None, next_run_at=now + timedelta(minutes=interval_minutes))
+            s.add(row)
+            s.commit()
+            return self._summary(row)
+
+    def list(self, org_id: str) -> list[dict]:
+        with self._sf() as s:
+            rows = s.execute(
+                select(ScheduleRow).where(ScheduleRow.org_id == org_id)
+                .order_by(ScheduleRow.created_at.desc())
+            ).scalars().all()
+            return [self._summary(r) for r in rows]
+
+    def set_enabled(self, sched_id: str, org_id: str, enabled: bool) -> bool:
+        with self._sf() as s:
+            row = s.get(ScheduleRow, sched_id)
+            if row is None or row.org_id != org_id:
+                return False
+            row.enabled = enabled
+            # re-arm so a re-enabled schedule doesn't immediately fire a backlog
+            if enabled:
+                row.next_run_at = _now() + timedelta(minutes=row.interval_minutes)
+            s.commit()
+            return True
+
+    def delete(self, sched_id: str, org_id: str) -> bool:
+        with self._sf() as s:
+            row = s.get(ScheduleRow, sched_id)
+            if row is None or row.org_id != org_id:
+                return False
+            s.delete(row)
+            s.commit()
+            return True
+
+    # Sequence, not list[...]: the `list` method above shadows the builtin.
+    def due(self, now: datetime) -> Sequence[dict]:
+        """Enabled schedules whose next_run_at has passed — across all orgs (the
+        scheduler fires each in its own org). Returned detached as plain dicts."""
+        with self._sf() as s:
+            rows = s.execute(
+                select(ScheduleRow).where(ScheduleRow.enabled.is_(True),
+                                          ScheduleRow.next_run_at <= now)
+            ).scalars().all()
+            return [self._summary(r) for r in rows]
+
+    def mark_fired(self, sched_id: str, now: datetime) -> None:
+        with self._sf() as s:
+            row = s.get(ScheduleRow, sched_id)
+            if row is None:
+                return
+            row.last_run_at = now
+            row.next_run_at = now + timedelta(minutes=row.interval_minutes)
+            s.commit()
+
+    @staticmethod
+    def _summary(r: ScheduleRow) -> dict:
+        return {"id": r.id, "org_id": r.org_id, "workflow_id": r.workflow_id,
+                "params": r.params, "interval_minutes": r.interval_minutes,
+                "enabled": r.enabled, "created_at": r.created_at,
+                "last_run_at": r.last_run_at, "next_run_at": r.next_run_at}

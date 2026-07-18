@@ -27,6 +27,7 @@ from ..services.agent import AgentService
 from ..services.induction import InductionService
 from ..services.metrics import MetricsService
 from ..services.runs import RunService
+from ..services.scheduling import ScheduleService
 from ..services.traces import TraceService
 from ..services.workflows import WorkflowService
 
@@ -40,6 +41,7 @@ __all__ = [
     "get_replays",
     "get_run_service",
     "get_runs",
+    "get_schedule_service",
     "get_trace_service",
     "get_traces",
     "get_usage",
@@ -98,3 +100,7 @@ def get_metrics_service() -> MetricsService:
 def get_agent_service() -> AgentService:
     return AgentService(container.conversations, container.workflows,
                         container.runs, container.traces, container.usage)
+
+
+def get_schedule_service() -> ScheduleService:
+    return ScheduleService(container.schedules, container.workflows)

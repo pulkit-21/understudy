@@ -52,3 +52,13 @@ class ReplayBody(BaseModel):
 class ChatBody(BaseModel):
     message: str
     conversation_id: str | None = None
+
+
+class ScheduleBody(BaseModel):
+    workflow_id: str
+    params: dict[str, str] = {}
+    interval_minutes: int = 60
+
+
+class ToggleBody(BaseModel):
+    enabled: bool

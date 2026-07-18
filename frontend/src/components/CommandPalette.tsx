@@ -54,6 +54,7 @@ export function CommandPalette({
       { id: "nav-assistant", title: "Open Assistant", group: "Navigate", icon: "chat", keywords: "chat agent", run: go("/assistant") },
       { id: "nav-workflows", title: "Go to Workflows", group: "Navigate", icon: "workflows", run: go("/workflows") },
       { id: "nav-runs", title: "Go to Runs", group: "Navigate", icon: "runs", keywords: "history", run: go("/runs") },
+      { id: "nav-schedules", title: "Go to Schedules", group: "Navigate", icon: "clock", keywords: "cron recurring trigger unattended", run: go("/schedules") },
       { id: "nav-approvals", title: "Go to Approvals", group: "Navigate", icon: "approvals", keywords: "gate review", run: go("/approvals") },
       { id: "nav-audit", title: "Go to Audit log", group: "Navigate", icon: "book", run: go("/audit") },
       { id: "nav-team", title: "Go to Team", group: "Navigate", icon: "team", run: go("/team") },

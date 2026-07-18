@@ -47,10 +47,25 @@ _RESERVED = ("api/", "portal", "erp", "docs", "openapi.json", "healthz", "assets
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    import asyncio
+
     # A fresh deploy seeds a demo account + workflows so it's demoable on load.
     demo_org = seed_demo_account(auth)
     seed_if_empty(traces, workflows, demo_org, base=settings.base_url)
-    yield
+
+    # Background scheduler (opt-in): fires due schedules unattended.
+    task = None
+    if settings.scheduler_enabled:
+        from .container import schedules
+        from .services.scheduling import scheduler_loop
+        task = asyncio.create_task(
+            scheduler_loop(schedules, workflows, runs,
+                           tick_seconds=settings.scheduler_tick_seconds))
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
 
 
 def _mount_frontend(app: FastAPI) -> None:

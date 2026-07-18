@@ -15,6 +15,7 @@ import { SettingsPage } from "./routes/SettingsPage";
 import { AssistantPage } from "./routes/AssistantPage";
 import { TeamPage } from "./routes/TeamPage";
 import { AuditPage } from "./routes/AuditPage";
+import { SchedulesPage } from "./routes/SchedulesPage";
 import { Tour } from "./components/Tour";
 import { CommandPalette } from "./components/CommandPalette";
 import { Icon } from "./components/Icon";
@@ -99,6 +100,7 @@ function Shell() {
         <NavItem to="/assistant" icon="chat" label="Assistant" />
         <NavItem to="/workflows" icon="workflows" label="Workflows" />
         <NavItem to="/runs" icon="runs" label="Runs" />
+        <NavItem to="/schedules" icon="clock" label="Schedules" />
         <NavItem to="/approvals" icon="approvals" label="Approvals" badge={pending} />
         <NavItem to="/audit" icon="book" label="Audit log" />
         <NavItem to="/team" icon="team" label="Team" />
@@ -132,6 +134,7 @@ function Shell() {
           <Route path="/workflows/:id" element={<WorkflowPage />} />
           <Route path="/runs" element={<RunsPage />} />
           <Route path="/runs/:id" element={<RunPage />} />
+          <Route path="/schedules" element={<SchedulesPage />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
           <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/audit" element={<AuditPage />} />
