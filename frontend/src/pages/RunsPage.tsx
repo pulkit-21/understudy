@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { api, ApiError, RunSummary } from "../api";
+import { api } from "../api";
+import { useAsync } from "../hooks/useAsync";
 import { SkeletonList } from "../Skeleton";
 
 function when(iso: string) {
@@ -15,16 +15,9 @@ export function RunsPage() {
   const [sp] = useSearchParams();
   const batch = sp.get("batch") ?? undefined;
   const status = sp.get("status") ?? undefined;
-  const [runs, setRuns] = useState<RunSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setRuns(null);
-    api.listRuns({ batch_id: batch, status })
-      .then(setRuns)
-      .catch((e) => setError(e instanceof ApiError ? String(e.detail) : String(e)));
-  }, [batch, status]);
-
+  const { data, error, loading } = useAsync(
+    () => api.listRuns({ batch_id: batch, status }), [batch, status]);
+  const runs = data ?? [];
   const filtered = batch || status;
 
   return (
@@ -39,7 +32,7 @@ export function RunsPage() {
 
       {error && <div className="banner error">{error}</div>}
 
-      {runs === null ? (
+      {loading ? (
         <SkeletonList rows={5} />
       ) : runs.length === 0 ? (
         <div className="card empty">

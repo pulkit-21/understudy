@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { api, ApiError, TeamMember } from "../api";
+import { api } from "../api";
+import { useAsync } from "../hooks/useAsync";
 import { SkeletonList } from "../Skeleton";
 
 function initials(name: string, email: string) {
@@ -8,15 +8,9 @@ function initials(name: string, email: string) {
 }
 
 export function TeamPage() {
-  const [members, setMembers] = useState<TeamMember[] | null>(null);
-  const [me, setMe] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    api.team()
-      .then((d) => { setMembers(d.members); setMe(d.me); })
-      .catch((e) => setError(e instanceof ApiError ? String(e.detail) : String(e)));
-  }, []);
+  const { data, error, loading } = useAsync(() => api.team(), []);
+  const members = data?.members ?? [];
+  const me = data?.me ?? "";
 
   return (
     <div className="container">
@@ -35,7 +29,7 @@ export function TeamPage() {
         </button>
       </div>
 
-      {members === null ? <SkeletonList rows={3} /> : (
+      {loading ? <SkeletonList rows={3} /> : (
         <div className="card">
           {members.map((m) => (
             <div className="row" key={m.id}>

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, ApiError, AuditEvent } from "../api";
+import { api } from "../api";
+import { useAsync } from "../hooks/useAsync";
 import { SkeletonList } from "../Skeleton";
 
 function when(ts: string) {
@@ -10,15 +11,9 @@ function when(ts: string) {
 
 export function AuditPage() {
   const nav = useNavigate();
-  const [events, setEvents] = useState<AuditEvent[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, loading } = useAsync(() => api.auditLog(), []);
+  const events = data?.events ?? null;
   const [q, setQ] = useState("");
-
-  useEffect(() => {
-    api.auditLog()
-      .then((d) => setEvents(d.events))
-      .catch((e) => setError(e instanceof ApiError ? String(e.detail) : String(e)));
-  }, []);
 
   const shown = useMemo(() => {
     if (!events) return [];
@@ -41,7 +36,7 @@ export function AuditPage() {
                value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
-      {events === null ? <SkeletonList rows={6} />
+      {loading ? <SkeletonList rows={6} />
         : shown.length === 0 ? <div className="card empty">No audit events yet.</div>
         : (
           <div className="card log">

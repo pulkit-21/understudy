@@ -1194,3 +1194,37 @@ is findable, independently testable (dependencies are overridable), and the wiri
 lives in exactly one file. All 31 API routes preserved (verified against the
 OpenAPI schema); **102 tests green, ruff + mypy clean** at every stage; server
 boots and serves end-to-end.
+
+---
+
+## D48 — Production-level layering: backend service layer + frontend modularization
+
+**Backend — service layer + domain errors.**
+- `services/errors.py`: `NotFound`/`Conflict`/`Invalid` domain exceptions, mapped
+  to 404/409/422 by one handler registered in `create_app`. Services raise these,
+  so they carry no web coupling.
+- `services/*.py`: one service per resource (trace, workflow, run, induction,
+  metrics, agent) holding the orchestration that used to live in route handlers.
+  `api/deps.py` gained `get_*_service` providers; the routers are now thin
+  controllers (parse → call service → return). Router code dropped to ~55 lines
+  each; the biggest handler is now three lines.
+- `tests/test_services.py`: 18 unit tests exercising services + their error
+  paths directly (no HTTP). Coverage 85% → **89%**.
+
+**Frontend — api module + data hook.**
+- Split the 334-line `api.ts` into `api/`: `types.ts` (all DTOs), `http.ts` (the
+  fetch core, token, ApiError), `resources/{auth,traces,workflows,runs,metrics,
+  agent}.ts` (one client per resource), and an `index.ts` barrel that composes
+  the flat `api` object and re-exports everything — so every `from "../api"`
+  import is unchanged.
+- `hooks/useAsync.ts`: one hook replaces the useState+useEffect+try/catch that
+  every list page repeated; standardizes ApiError surfacing and stale-response
+  guarding. Migrated Runs/Audit/Team as the first consumers.
+
+**On "one file per model?"** — deliberately **not**. Models are grouped by
+aggregate (`models/trace.py`, `models/workflow.py`) and ORM rows share
+`db/models.py`, the idiomatic SQLAlchemy layout. One-class-per-file would
+fragment cohesive aggregates for no benefit.
+
+120 tests green, ruff + mypy clean, frontend builds; migrated pages verified in
+a headless browser with zero console errors.
