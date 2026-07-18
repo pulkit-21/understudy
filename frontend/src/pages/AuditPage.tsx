@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, ApiError, AuditEvent } from "../api";
+import { SkeletonList } from "../Skeleton";
 
 function when(ts: string) {
   try { return new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }); }
@@ -40,7 +41,7 @@ export function AuditPage() {
                value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
-      {events === null ? <div className="spinner">Loading…</div>
+      {events === null ? <SkeletonList rows={6} />
         : shown.length === 0 ? <div className="card empty">No audit events yet.</div>
         : (
           <div className="card log">

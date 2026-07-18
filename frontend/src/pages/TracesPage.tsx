@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, ApiError, TraceSummary, WorkflowSpec } from "../api";
+import { SkeletonList } from "../Skeleton";
 
 export function TracesPage() {
   const nav = useNavigate();
@@ -93,7 +94,7 @@ export function TracesPage() {
       )}
 
       {workflows === null ? (
-        <div className="spinner">Loading…</div>
+        <SkeletonList rows={3} />
       ) : workflows.length === 0 ? (
         <div className="card empty">
           No workflows yet. Induce one from a demonstration below.
@@ -126,7 +127,7 @@ export function TracesPage() {
 
       <div className="section-h">Recorded demonstrations</div>
       {traces === null ? (
-        <div className="spinner">Loading…</div>
+        <SkeletonList rows={3} />
       ) : traces.length === 0 ? (
         <div className="card empty">
           No demonstrations recorded yet. Record one with the button above, or

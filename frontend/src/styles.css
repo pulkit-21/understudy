@@ -459,3 +459,26 @@ textarea.input { resize: vertical; }
   animation: skel 1.4s ease infinite; border-radius: 6px; }
 @keyframes skel { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
 .skeleton-row { height: 16px; margin: 10px 0; }
+
+/* ============================ dashboard data-viz ============================ */
+.viz { padding: 18px 20px; margin-bottom: 8px; }
+.viz-head { display: flex; align-items: baseline; justify-content: space-between;
+  font-weight: 600; font-size: 14px; margin-bottom: 12px; }
+.viz-head .viz-total { color: var(--faint); font-size: 12.5px; font-weight: 500; }
+/* horizontal stacked bar: 2px surface gaps between fills, rounded ends */
+.stackbar { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden;
+  background: var(--surface-2); }
+.stackbar-seg { min-width: 5px; cursor: pointer; transition: filter .12s;
+  border-radius: 3px; }
+.stackbar-seg:hover { filter: brightness(1.08); }
+.viz-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; }
+.legend-item { display: inline-flex; align-items: center; gap: 7px; border: none;
+  background: transparent; font: inherit; font-size: 13px; color: var(--muted);
+  cursor: pointer; padding: 2px 0; }
+.legend-item:hover { color: var(--text); }
+.legend-dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.legend-label { color: var(--muted); }
+.legend-item:hover .legend-label { color: var(--text); }
+.legend-val { font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.skel-line { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+.skel-line .skeleton-row { margin: 0; }

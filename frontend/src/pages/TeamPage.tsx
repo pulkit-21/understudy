@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, TeamMember } from "../api";
+import { SkeletonList } from "../Skeleton";
 
 function initials(name: string, email: string) {
   const n = (name || email || "?").trim();
@@ -34,7 +35,7 @@ export function TeamPage() {
         </button>
       </div>
 
-      {members === null ? <div className="spinner">Loading…</div> : (
+      {members === null ? <SkeletonList rows={3} /> : (
         <div className="card">
           {members.map((m) => (
             <div className="row" key={m.id}>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, ApiError, RunSummary } from "../api";
+import { SkeletonList } from "../Skeleton";
 
 function when(iso: string) {
   const d = new Date(iso);
@@ -39,7 +40,7 @@ export function RunsPage() {
       {error && <div className="banner error">{error}</div>}
 
       {runs === null ? (
-        <div className="spinner">Loading…</div>
+        <SkeletonList rows={5} />
       ) : runs.length === 0 ? (
         <div className="card empty">
           No runs yet. Open a workflow and run it to see it here.

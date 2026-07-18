@@ -1141,3 +1141,25 @@ the turn metered to usage as `agent / claude-sonnet-5` ($0.035).
 live path surfaced that the key never reached the SDK. Both are the kind of bug
 that would have looked fine in every unit test (all keyless) and broken the
 deployed demo's headline feature.
+
+---
+
+## D46 — Frontend over-engineering: dashboard data-viz, skeletons, optimistic UI
+
+**Decision.** Push the frontend further on perceived quality:
+- **Dashboard "Runs by outcome" chart** — a labeled horizontal stacked bar over
+  `run_counts`. Followed the data-viz method: status is a *state* job, so it uses
+  the reserved status palette (never categorical hues), ships with a legend +
+  counts (identity never by color alone), 2px surface gaps between fills, rounded
+  ends, and click-through to the filtered Runs list. Validated in light + dark.
+- **Skeleton loaders** — a shared `SkeletonList` (shimmer) replaces bare
+  "Loading…" spinners across Dashboard, Runs, Workflows, Audit, Team, Approvals.
+- **Optimistic approvals** — approve/reject drops the row instantly and rolls
+  back on error, so the queue feels immediate while still reconciling with the
+  server once the run settles.
+
+**Reasoning.** These are the touches that separate "works" from "premium": the
+dashboard now *shows* the automation's state, not just counts it; lists feel
+fast; the approval queue feels responsive. All dependency-free on the existing
+tokens; verified in-browser (chart segments + legend, both themes) with zero
+console errors.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, ApiError, RunSummary } from "../api";
+import { SkeletonList } from "../Skeleton";
 
 export function ApprovalsPage() {
   const nav = useNavigate();
@@ -18,11 +19,16 @@ export function ApprovalsPage() {
   async function decide(id: string, kind: "approve" | "reject") {
     setActing(id);
     setError(null);
+    // Optimistic: drop the row immediately so the queue feels instant. Restore
+    // it (via reload) only if the call fails.
+    const before = runs;
+    setRuns((rs) => (rs ? rs.filter((r) => r.id !== id) : rs));
     try {
       await (kind === "approve" ? api.approve(id) : api.reject(id));
-      setTimeout(load, 300);  // let the run settle, then refresh
+      setTimeout(load, 400);  // reconcile with server truth once the run settles
     } catch (e) {
       setError(e instanceof ApiError ? String(e.detail) : String(e));
+      setRuns(before);        // rollback the optimistic removal
     } finally {
       setActing(null);
     }
@@ -38,7 +44,7 @@ export function ApprovalsPage() {
       {error && <div className="banner error">{error}</div>}
 
       {runs === null ? (
-        <div className="spinner">Loading…</div>
+        <SkeletonList rows={3} />
       ) : runs.length === 0 ? (
         <div className="card empty">🎉 Nothing waiting. All caught up.</div>
       ) : (
