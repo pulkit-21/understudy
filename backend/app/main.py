@@ -19,23 +19,18 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from .api.auth_routes import build_auth_router
-from .api.routes import build_router
+from .api.routers import all_routers
 from .config import get_settings
-from .container import (
-    auth,
-    conversations,
-    replays,
-    runs,
-    traces,
-    usage,
-    workflows,
-)
+from .container import auth, runs, traces, workflows
 from .mockapps.routes import router as mockapps_router
 from .ratelimit import limiter
 from .seed import seed_demo_account, seed_if_empty
 
-# `auth`, `runs`, and the repos are constructed in container.py (the composition
-# root); re-exported here because tests and tooling import them from app.main.
+# The singletons are constructed in container.py (the composition root). `auth`,
+# `traces`, and `workflows` are used below; `runs` (and `app`) are re-exported
+# via __all__ because tests and tooling import them from app.main.
+__all__ = ["app", "auth", "runs", "traces", "workflows"]
+
 settings = get_settings()
 DATA_DIR = settings.data_dir
 BASE_URL = settings.base_url
@@ -62,8 +57,8 @@ app.add_middleware(
 
 app.include_router(mockapps_router)
 app.include_router(build_auth_router(auth))
-app.include_router(build_router(traces, workflows, runs, usage, replays,
-                                conversations))
+for _router in all_routers:
+    app.include_router(_router)
 
 
 @app.get("/healthz")
