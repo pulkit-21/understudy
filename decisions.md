@@ -1163,3 +1163,34 @@ dashboard now *shows* the automation's state, not just counts it; lists feel
 fast; the approval queue feels responsive. All dependency-free on the existing
 tokens; verified in-browser (chart segments + legend, both themes) with zero
 console errors.
+
+---
+
+## D47 — Restructure the API into an idiomatic FastAPI/MVC layout
+
+**Decision.** Refactor the backend's HTTP layer from one 466-line `build_router`
+closure into a conventional, modular structure, in four test-green stages:
+
+1. **`api/schemas.py`** — all request DTOs in one place (the boundary "V"),
+   separate from the domain models they map onto.
+2. **`container.py`** (composition root) + **`api/deps.py`** (FastAPI `Depends`
+   providers) — singletons are constructed once in the container; routers ask for
+   what they need via DI instead of closing over globals. `main.py` re-exports
+   `auth`/`runs`/… for test compatibility.
+3. **`api/routers/`** — one `APIRouter` module per resource (traces, recordings,
+   induction, workflows, runs, metrics, agent). Controllers, cleanly separated.
+4. **`create_app()` application factory** — `main.py` is now a thin assembler
+   (middleware, routers, lifespan, SPA mount) rather than a script.
+
+The result maps cleanly onto MVC: **models/** (domain) + **db/** (persistence) =
+model, **api/routers/** = controllers, **api/schemas.py** = the request contract,
+with **executor/** + **induction/** as the service layer and **container.py** as
+the composition root.
+
+**Reasoning.** The behemoth router was the one part of the codebase that wasn't
+industry-standard: DTOs inline, DI by argument-threading, every endpoint in one
+function. The new layout is the shape a FastAPI reviewer expects — each resource
+is findable, independently testable (dependencies are overridable), and the wiring
+lives in exactly one file. All 31 API routes preserved (verified against the
+OpenAPI schema); **102 tests green, ruff + mypy clean** at every stage; server
+boots and serves end-to-end.
