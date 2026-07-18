@@ -38,8 +38,26 @@ ignore_missing_imports = true      # playwright/anthropic ship partial stubs
 exclude = ["backend/alembic/", "tests/", "frontend/"]
 
 [[tool.mypy.overrides]]
-module = ["app.models.*", "app.executor.runner"]
+module = ["app.domain.*", "app.engine.runner"]
 disallow_untyped_defs = true       # the safety core is fully typed
+
+# ---- layered-architecture enforcement (import-linter; run via `lint-imports`) ----
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "Domain is dependency-free"
+type = "forbidden"
+source_modules = ["app.domain"]
+forbidden_modules = [
+    "app.api", "app.services", "app.repos", "app.db",
+    "app.engine", "app.clients", "app.agents", "app.container",
+]
+
+[[tool.importlinter.contracts]]
+name = "Controllers -> services -> repositories (no upward imports)"
+type = "layers"
+layers = ["app.api", "app.services", "app.repos"]
 
 [tool.coverage.run]
 source = ["backend/app"]
