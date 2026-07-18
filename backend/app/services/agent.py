@@ -6,13 +6,13 @@ messages. The agent's tools are org-scoped and cannot approve a gate."""
 from __future__ import annotations
 
 from ..config import get_settings
-from ..db.repositories import (
+from ..engine.manager import RunManager
+from ..repos import (
     ConversationRepo,
     TraceRepo,
     UsageRepo,
     WorkflowRepo,
 )
-from ..engine.manager import RunManager
 from .errors import NotFound
 
 

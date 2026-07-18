@@ -1,5 +1,14 @@
 """Persistence: SQLAlchemy engine, ORM rows, repositories, migrations."""
-from .engine import SessionLocal, engine, resolve_url
+# Repositories live in the top-level `repos` package (their own layer); re-exported
+# here for the many call sites and tests that import them alongside the session.
+from ..repos import (
+    ConversationRepo,
+    ReplayRepo,
+    RunRepo,
+    TraceRepo,
+    UsageRepo,
+    WorkflowRepo,
+)
 from .migrate import run_migrations
 from .models import (
     Base,
@@ -13,14 +22,7 @@ from .models import (
     WorkflowRow,
     WorkflowVersionRow,
 )
-from .repositories import (
-    ConversationRepo,
-    ReplayRepo,
-    RunRepo,
-    TraceRepo,
-    UsageRepo,
-    WorkflowRepo,
-)
+from .session import SessionLocal, engine, resolve_url
 
 __all__ = [
     "Base",

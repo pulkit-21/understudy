@@ -12,10 +12,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..domain.trace import Trace
-from ..domain.workflow import WorkflowSpec
-from ..engine.runner import Run
-from .models import (
+from ..db.models import (
     ConversationRow,
     ReplayRow,
     RunRow,
@@ -24,6 +21,9 @@ from .models import (
     WorkflowRow,
     WorkflowVersionRow,
 )
+from ..domain.trace import Trace
+from ..domain.workflow import WorkflowSpec
+from ..engine.runner import Run
 
 SessionFactory = Callable[[], Session]
 

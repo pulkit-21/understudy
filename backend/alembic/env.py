@@ -14,8 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import contextlib
 
-from app.db.engine import resolve_url
 from app.db.models import Base
+from app.db.session import resolve_url
 
 config = context.config
 if config.config_file_name is not None:

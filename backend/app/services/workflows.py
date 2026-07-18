@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from uuid import uuid4
 
-from ..db.repositories import WorkflowRepo
 from ..domain.workflow import WorkflowSpec, WorkflowStatus
+from ..repos import WorkflowRepo
 from .errors import Invalid, NotFound
 
 

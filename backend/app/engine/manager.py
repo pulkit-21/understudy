@@ -13,7 +13,7 @@ from ..domain.workflow import WorkflowSpec
 from .runner import PlaywrightSink, Run, RunEvent, Runner, RunStatus
 
 if TYPE_CHECKING:
-    from ..db.repositories import RunRepo
+    from ..repos import RunRepo
 
 
 class RunManager:

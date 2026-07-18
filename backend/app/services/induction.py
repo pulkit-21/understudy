@@ -2,9 +2,9 @@
 pass is deterministic and always runs; the LLM legibility pass is best-effort."""
 from __future__ import annotations
 
-from ..db.repositories import TraceRepo, UsageRepo, WorkflowRepo
 from ..induction.heuristic import induce_heuristic
 from ..induction.llm import InductionError, enrich_with_llm
+from ..repos import TraceRepo, UsageRepo, WorkflowRepo
 from .errors import NotFound
 
 

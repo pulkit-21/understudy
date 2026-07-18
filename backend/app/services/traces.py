@@ -1,8 +1,8 @@
 """Trace use-cases: list/fetch demonstrations and their rrweb session replays."""
 from __future__ import annotations
 
-from ..db.repositories import ReplayRepo, TraceRepo
 from ..domain.trace import Trace
+from ..repos import ReplayRepo, TraceRepo
 from .errors import NotFound
 
 

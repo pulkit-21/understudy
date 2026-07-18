@@ -12,7 +12,7 @@ from alembic.config import Config
 
 from alembic import command
 
-from .engine import resolve_url
+from .session import resolve_url
 
 _ALEMBIC_DIR = Path(__file__).resolve().parents[2] / "alembic"
 
