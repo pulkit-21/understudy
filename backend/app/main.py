@@ -20,40 +20,26 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from .api.auth_routes import build_auth_router
 from .api.routes import build_router
-from .auth import AuthRepo, bind_auth_repo
 from .config import get_settings
-from .db import (
-    ConversationRepo,
-    ReplayRepo,
-    RunRepo,
-    SessionLocal,
-    TraceRepo,
-    UsageRepo,
-    WorkflowRepo,
-    run_migrations,
+from .container import (
+    auth,
+    conversations,
+    replays,
+    runs,
+    traces,
+    usage,
+    workflows,
 )
-from .executor.manager import RunManager
 from .mockapps.routes import router as mockapps_router
 from .ratelimit import limiter
 from .seed import seed_demo_account, seed_if_empty
 
+# `auth`, `runs`, and the repos are constructed in container.py (the composition
+# root); re-exported here because tests and tooling import them from app.main.
 settings = get_settings()
 DATA_DIR = settings.data_dir
 BASE_URL = settings.base_url
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-
-# Provision the schema before anything reads/writes (idempotent).
-run_migrations()
-
-auth = AuthRepo(SessionLocal)
-bind_auth_repo(auth)
-traces = TraceRepo(SessionLocal)
-workflows = WorkflowRepo(SessionLocal)
-usage = UsageRepo(SessionLocal)
-replays = ReplayRepo(SessionLocal)
-conversations = ConversationRepo(SessionLocal)
-runs = RunManager(base_url=BASE_URL, run_repo=RunRepo(SessionLocal),
-                  headless=not settings.headful)
 
 
 @asynccontextmanager
