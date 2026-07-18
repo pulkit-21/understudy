@@ -13,7 +13,6 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 
 from ..auth import User, current_user, user_from_token
 from ..config import get_settings
@@ -31,44 +30,15 @@ from ..models.trace import Trace
 from ..models.workflow import WorkflowSpec, WorkflowStatus
 from ..ratelimit import limiter
 from ..recorder.session import RecordingSession
-
-# Request bodies MUST be module-scope: FastAPI/pydantic v2 cannot build a schema
-# for a Pydantic model defined inside a function (its qualname has <locals>), and
-# silently degrades such a parameter to a query param — which breaks every
-# body-taking endpoint. Keep these here.
-
-
-class InduceBody(BaseModel):
-    name: str | None = None
-    use_llm: bool = True
-
-
-class RunBody(BaseModel):
-    params: dict[str, str] = {}
-
-
-class BatchBody(BaseModel):
-    param_values: list[str]          # e.g. a list of invoice ids
-    param_key: str | None = None     # which parameter varies; default = sole one
-    defaults: dict[str, str] = {}    # values for the workflow's OTHER parameters
-
-
-class StatusBody(BaseModel):
-    status: WorkflowStatus
-
-
-class StartRecordingBody(BaseModel):
-    name: str = "Untitled demonstration"
-    start_url: str | None = None
-
-
-class ReplayBody(BaseModel):
-    events: list  # rrweb events
-
-
-class ChatBody(BaseModel):
-    message: str
-    conversation_id: str | None = None
+from .schemas import (
+    BatchBody,
+    ChatBody,
+    InduceBody,
+    ReplayBody,
+    RunBody,
+    StartRecordingBody,
+    StatusBody,
+)
 
 
 def build_router(traces: TraceRepo, workflows: WorkflowRepo,
