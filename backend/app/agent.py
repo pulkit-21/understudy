@@ -390,7 +390,9 @@ async def run_agent(history: list[dict], tools: AgentTools) -> dict:
         return await _mock_agent(history, tools)
 
     model = settings.agent_model
-    client = AsyncAnthropic()
+    # pass the key explicitly: Settings may have sourced it from .env, which the
+    # SDK's default os.environ lookup would not see.
+    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
     convo: list[dict] = [{"role": m["role"], "content": m["content"]}
                          for m in history]
     schemas = tool_schemas()

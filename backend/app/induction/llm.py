@@ -120,7 +120,9 @@ async def enrich_with_llm(
         raise InductionError("ANTHROPIC_API_KEY not set")
 
     model = settings.induction_model
-    client = AsyncAnthropic()
+    # explicit key: Settings may have sourced it from .env (unseen by the SDK's
+    # default os.environ lookup).
+    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
     payload = {
         "trace": trace.condensed().model_dump(mode="json"),
         "draft_spec": draft.model_dump(mode="json"),

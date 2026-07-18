@@ -18,6 +18,11 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Absolute path to the project-root .env, so the key is found no matter which
+# directory the server is launched from (repo root, backend/, or a container
+# WORKDIR). backend/app/config.py -> parents[2] is the repo root.
+_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
 
 class Settings(BaseSettings):
     """Typed application settings, sourced from the environment (prefix
@@ -25,7 +30,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="UNDERSTUDY_",
-        env_file=".env",
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,  # allow init/env by field name OR alias

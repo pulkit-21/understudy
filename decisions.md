@@ -1118,3 +1118,26 @@ turn that hit the dashboard crashed. Guarded with an `isinstance(..., list)`
 check. This is exactly why the tests were worth writing.
 
 Suite: 85 → **102 tests**, coverage 80% → **85%**; ruff + mypy clean.
+
+---
+
+## D45 — Make the API key actually reach the SDK (end-to-end agent fix)
+
+**Decision.** Two fixes found by driving a real chat turn against Sonnet:
+1. `.env` is now loaded by **absolute path** (repo-root, computed from
+   `config.py`'s location), not the relative `".env"` — which only resolved when
+   the server happened to launch from the repo root, and silently fell back to
+   the keyless agent when launched from `backend/` or a container WORKDIR.
+2. The Anthropic client is now constructed with `api_key=settings.anthropic_api_key`
+   explicitly. The SDK's default reads `os.environ`, but Settings sources the key
+   from `.env` into the Settings object — never into `os.environ` — so the
+   default lookup failed with an auth error.
+
+Verified end-to-end: the real **claude-sonnet-5** agent chained
+`list_workflows` + `get_workflow` and returned an accurate, well-formatted answer;
+the turn metered to usage as `agent / claude-sonnet-5` ($0.035).
+
+**Reasoning.** This is why "configured" isn't "working" — only exercising the
+live path surfaced that the key never reached the SDK. Both are the kind of bug
+that would have looked fine in every unit test (all keyless) and broken the
+deployed demo's headline feature.
