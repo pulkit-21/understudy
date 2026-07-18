@@ -1,0 +1,11 @@
+# Frontend dev image — Vite dev server with HMR. Source is bind-mounted by
+# docker-compose; node_modules lives in a named volume so the host's platform
+# binaries never clobber the container's.
+FROM node:20-slim
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+EXPOSE 5173
+CMD ["npm", "run", "dev", "--", "--host"]

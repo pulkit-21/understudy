@@ -1,0 +1,51 @@
+# Understudy — full-stack dev environment.
+#
+#   make dev       → build + start backend and frontend
+#   make up/down   → control the stack
+#   make test      → run pytest inside the backend container
+#
+# Source is bind-mounted for live reload (uvicorn --reload, Vite HMR). The
+# backend's .venv is baked into the image; the frontend's node_modules lives in
+# a named volume so the host's binaries never clobber the container's. SQLite
+# data persists across restarts in the understudy_data volume — set DATABASE_URL
+# to a Postgres URL to use a managed database instead.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    container_name: understudy-backend
+    environment:
+      UNDERSTUDY_DATA: /data
+      # Optional — set in a .env file next to this compose file to unlock the
+      # LLM legibility pass + the full conversational agent.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      UNDERSTUDY_AGENT_MODEL: ${UNDERSTUDY_AGENT_MODEL:-claude-sonnet-5}
+      UNDERSTUDY_INDUCTION_MODEL: ${UNDERSTUDY_INDUCTION_MODEL:-claude-opus-4-8}
+      # DATABASE_URL: postgresql+psycopg://...   # unset -> SQLite under /data
+    volumes:
+      - .:/app                         # live code
+      - understudy_data:/data          # persistent SQLite + artifacts
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: understudy-frontend
+    depends_on:
+      - backend
+    environment:
+      # Proxy target from inside the frontend container (compose service name).
+      VITE_BACKEND_URL: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - understudy_node_modules:/app/node_modules   # mask host's modules
+    ports:
+      - "5173:5173"
+
+volumes:
+  understudy_data:
+  understudy_node_modules:
