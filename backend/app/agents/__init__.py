@@ -14,27 +14,11 @@ import json
 import re
 from typing import Any
 
-from .config import get_settings
-from .induction.heuristic import induce_heuristic
-from .induction.llm import InductionError, cost_usd, enrich_with_llm
-
-SYSTEM = """\
-You are Understudy's assistant. Understudy learns browser workflows from a
-recorded demonstration and replays them — the showcase task moves a vendor
-invoice from the Vendra portal into the LedgerOne ERP, pausing for human
-approval before it posts the bill.
-
-You help the user DISCOVER, LEARN, and RUN these workflows using the provided
-tools. Rules you must follow:
-- You may START runs (single or batch), but you can NEVER approve or reject an
-  irreversible step. Only a human can. When a run pauses for approval, say so
-  plainly and tell the user to approve it (on the run card here, or in Approvals).
-- For a BATCH, always preview first: call run_batch WITHOUT confirmed, tell the
-  user how many runs it will start, and ask them to confirm. Only after they say
-  yes, call run_batch again with confirmed=true.
-- Prefer acting via tools over guessing. Use real ids returned by tools.
-- Be concise and concrete. Report what you did with the ids and statuses.
-- If asked to do something you have no tool for, say so."""
+from ..clients.llm import LLMUnavailable, anthropic_client
+from ..config import get_settings
+from ..induction.heuristic import induce_heuristic
+from ..induction.llm import InductionError, cost_usd, enrich_with_llm
+from ..prompts import AGENT_SYSTEM as SYSTEM
 
 
 def tool_schemas() -> list[dict]:
@@ -385,14 +369,11 @@ async def run_agent(history: list[dict], tools: AgentTools) -> dict:
     if settings.use_mock_agent:
         return await _mock_agent(history, tools)
     try:
-        from anthropic import AsyncAnthropic
-    except ImportError:
+        client = anthropic_client()
+    except LLMUnavailable:
         return await _mock_agent(history, tools)
 
     model = settings.agent_model
-    # pass the key explicitly: Settings may have sourced it from .env, which the
-    # SDK's default os.environ lookup would not see.
-    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
     convo: list[dict] = [{"role": m["role"], "content": m["content"]}
                          for m in history]
     schemas = tool_schemas()

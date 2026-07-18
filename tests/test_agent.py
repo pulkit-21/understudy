@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.agent import AgentTools, tool_schemas
+from app.agents import AgentTools, tool_schemas
 from app.db import SessionLocal, TraceRepo, UsageRepo, WorkflowRepo
 from app.engine.runner import RunStatus
 from app.induction.heuristic import induce_heuristic
@@ -93,7 +93,7 @@ async def test_keyless_mock_agent_works_offline(demo_trace, org_id, monkeypatch)
     """The chat must work with no API key (deterministic fallback), like the
     reference's mock LLM — and still route through the gated tools."""
     monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
-    from app.agent import run_agent
+    from app.agents import run_agent
     WorkflowRepo(SessionLocal).save(induce_heuristic(demo_trace), org_id)
     tools = _tools(org_id)
 
@@ -140,7 +140,7 @@ async def test_unknown_tool_is_handled():
 @pytest.mark.asyncio
 async def test_mock_agent_reports_status(demo_trace, org_id, monkeypatch):
     monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
-    from app.agent import run_agent
+    from app.agents import run_agent
     WorkflowRepo(SessionLocal).save(induce_heuristic(demo_trace), org_id)
     r = await run_agent([{"role": "user", "content": "give me a status summary"}], _tools(org_id))
     assert any(s["tool"] == "get_dashboard" for s in r["steps"])
@@ -150,7 +150,7 @@ async def test_mock_agent_reports_status(demo_trace, org_id, monkeypatch):
 @pytest.mark.asyncio
 async def test_mock_agent_reports_pending_approvals(demo_trace, org_id, monkeypatch):
     monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
-    from app.agent import run_agent
+    from app.agents import run_agent
     r = await run_agent([{"role": "user", "content": "what's pending approval?"}], _tools(org_id))
     assert any(s["tool"] == "list_runs" for s in r["steps"])
 
@@ -158,7 +158,7 @@ async def test_mock_agent_reports_pending_approvals(demo_trace, org_id, monkeypa
 @pytest.mark.asyncio
 async def test_mock_agent_help_fallback(org_id, monkeypatch):
     monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
-    from app.agent import run_agent
+    from app.agents import run_agent
     r = await run_agent([{"role": "user", "content": "hello there"}], _tools(org_id))
     assert "run" in r["reply"].lower() and r["steps"] == []
 
@@ -171,7 +171,7 @@ async def test_mock_agent_batch_preview_then_confirm(demo_trace, org_id, monkeyp
     from app.main import runs
     started = []
     monkeypatch.setattr(runs, "start_run", lambda *a, **k: started.append(1) or _Stub())
-    from app.agent import run_agent
+    from app.agents import run_agent
     WorkflowRepo(SessionLocal).save(induce_heuristic(demo_trace), org_id)
     tools = _tools(org_id)
 

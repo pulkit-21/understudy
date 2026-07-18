@@ -28,9 +28,11 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 
+from ..clients.llm import LLMUnavailable, anthropic_client
 from ..config import get_settings
 from ..domain.trace import Trace
 from ..domain.workflow import WorkflowSpec
+from ..prompts import INDUCTION_SYSTEM
 
 # USD per input / output token, by model-id prefix. Used to meter induction cost
 # (the only place Understudy calls an LLM — runs are deterministic and free).
@@ -47,31 +49,6 @@ def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
         if model.startswith(prefix):
             return input_tokens * pin + output_tokens * pout
     return 0.0
-
-SYSTEM = """\
-You are improving the READABILITY of an already-correct browser-workflow spec
-that was mechanically induced from a user demonstration. You receive the
-demonstration trace (with page snapshots) and the draft spec. Return ONLY a
-JSON object with the exact same schema as the draft spec.
-
-You MAY change, and ONLY these:
-  - the top-level `name`: a concise, professional title for the procedure.
-  - the top-level `description`: 1-3 sentences naming the phases of the
-    procedure (e.g. "Open the invoice, read its fields, then post a bill to the
-    ERP — pausing for approval before posting.").
-  - each step's `intent`: one clear sentence a finance reviewer would write,
-    describing what the step does and, where relevant, why. For `extract` steps,
-    say what is being read and from where. For the gated commit step, make the
-    irreversibility explicit.
-  - each parameter's `description`.
-
-You MUST NOT change anything else. Keep every step's `action`, `target`,
-`value`, `url`, `extract_key`, `risk`, and `requires_approval` EXACTLY as given,
-in the same order. Never add, remove, or reorder steps. Never invent selectors.
-Never change a `requires_approval: true` to false. Do not touch `id`, `version`,
-`source_trace_ids`, or the set of parameter keys.
-"""
-
 
 class InductionError(RuntimeError):
     pass
@@ -112,17 +89,11 @@ async def enrich_with_llm(
     call — the caller records it (observability without coupling this module to
     the DB)."""
     try:
-        from anthropic import AsyncAnthropic
-    except ImportError as e:
-        raise InductionError("anthropic sdk not installed") from e
-    settings = get_settings()
-    if not settings.has_api_key:
-        raise InductionError("ANTHROPIC_API_KEY not set")
+        client = anthropic_client()
+    except LLMUnavailable as e:
+        raise InductionError(str(e)) from e
 
-    model = settings.induction_model
-    # explicit key: Settings may have sourced it from .env (unseen by the SDK's
-    # default os.environ lookup).
-    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+    model = get_settings().induction_model
     payload = {
         "trace": trace.condensed().model_dump(mode="json"),
         "draft_spec": draft.model_dump(mode="json"),
@@ -130,7 +101,7 @@ async def enrich_with_llm(
     msg = await client.messages.create(
         model=model,
         max_tokens=4000,
-        system=SYSTEM,
+        system=INDUCTION_SYSTEM,
         messages=[{"role": "user", "content": json.dumps(payload)}],
     )
     if on_usage is not None:

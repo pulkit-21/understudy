@@ -41,7 +41,7 @@ class AgentService:
     async def chat(self, message: str, conversation_id: str | None,
                    org_id: str) -> dict:
         # imported lazily: the agent module pulls in the Anthropic SDK
-        from ..agent import AgentTools, run_agent
+        from ..agents import AgentTools, run_agent
 
         conv = (self.conversations.get(conversation_id, org_id)
                 if conversation_id else None)
