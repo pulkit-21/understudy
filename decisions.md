@@ -1265,3 +1265,41 @@ it's a required deliverable, not clutter.
 reviewer reads structure from — findable modules, a composition root, an
 enforced dependency direction, and a one-command dev environment. import-linter
 turns the architecture from a claim into a build gate.
+
+---
+
+## D50 — Fixes from the in-depth code review (batch 1)
+
+An in-depth review (5 parallel passes: safety, auth/tenancy, refactor, frontend,
+persistence/infra) confirmed tenancy isolation and the gate itself are sound, and
+surfaced a set of real issues. Fixed the prioritized batch, each with a regression
+test; 120 → **124 tests**, ruff + mypy + import-linter clean.
+
+- **H1 — enrichment could disarm gates via `approval_policy`.** The gate is
+  resolved at run time from `spec.approval_policy`, but `validate_enrichment`
+  never checked it — an LLM-returned auto-approve policy would defeat the gate
+  with `requires_approval` still cosmetically true. Now: any policy change is
+  rejected (fall back to the deterministic draft) *and* the draft's policy is
+  pinned forward. (`induction/llm.py`)
+- **M2 — a reject before the gate hung the run.** `_gate_if_needed` cleared the
+  approval event then waited, dropping a reject signalled during an earlier step
+  → run blocked forever, leaking a browser + a worker-pool slot. Now `_rejected`
+  is checked at each step boundary and at the gate before clear/wait.
+  (`engine/runner.py`)
+- **H3 — committed dev JWT secret, no guard.** `require_secure()` now fails
+  closed at boot: the committed dev secret is allowed only with an explicit
+  `UNDERSTUDY_DEV_MODE=1`; a real deploy must supply its own secret. (base_url is
+  not a usable signal — the container pins it to loopback.)
+- **H4 — anonymous destructive `/erp/_reset` in prod.** Gated behind
+  `UNDERSTUDY_ENABLE_TEST_HOOKS` (off by default; on in tests/eval/dev-compose).
+- **H5 — documented Postgres path crashed on boot.** No driver was shipped; added
+  `psycopg[binary]` and `resolve_url` now normalizes any Postgres URL onto the
+  `postgresql+psycopg` dialect. Also added a 30s SQLite busy timeout.
+- **M5 — dev SQLite DB baked into the image.** `.dockerignore`'s `data` was
+  root-only; `backend/data/understudy.db` (with a bcrypt hash) shipped in the
+  image. Now `**/data/`, `**/*.db`, `**/.env` are excluded and the stray file
+  removed.
+
+Remaining review items (SSE token-in-URL, SSE reconnect, optimistic-rollback
+concurrency, account enumeration, and the LOW tail) are triaged in the review and
+not yet applied.

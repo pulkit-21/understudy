@@ -20,8 +20,13 @@ DATA_DIR = get_settings().data_dir
 def resolve_url() -> str:
     url = get_settings().database_url
     if url:
-        if url.startswith("postgres://"):  # Render/Heroku dialect fixup
-            url = url.replace("postgres://", "postgresql://", 1)
+        # Normalize any Postgres URL onto the psycopg (v3) driver, which is the
+        # one we ship (see requirements.txt). Render/Heroku hand out
+        # `postgres://`; SQLAlchemy 2.x also needs an explicit driver, else it
+        # defaults to psycopg2 (not installed) and boot fails.
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url[len(prefix):]
         return url
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     return f"sqlite:///{DATA_DIR / 'understudy.db'}"
@@ -29,10 +34,14 @@ def resolve_url() -> str:
 
 def make_engine(url: str | None = None) -> Engine:
     url = url or resolve_url()
-    # check_same_thread=False: our async endpoints and the run executor touch
-    # the same SQLite connection pool across threads; safe here because every
-    # repository call uses its own short-lived session.
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
+    # SQLite: check_same_thread=False (endpoints + run executor share the pool
+    # across threads; safe because every repo call uses its own short-lived
+    # session) and a 30s busy timeout so concurrent runs wait out a writer's
+    # lock instead of raising "database is locked".
+    connect_args = (
+        {"check_same_thread": False, "timeout": 30}
+        if url.startswith("sqlite") else {}
+    )
     return create_engine(url, connect_args=connect_args, future=True)
 
 

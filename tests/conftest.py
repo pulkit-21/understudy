@@ -26,6 +26,12 @@ os.environ.setdefault("UNDERSTUDY_RATELIMIT", "0")  # don't throttle across test
 # developer's real ANTHROPIC_API_KEY (loaded from .env by Settings) never causes
 # a live API call during tests. The LLM loop is exercised only outside CI.
 os.environ.setdefault("UNDERSTUDY_AGENT_MOCK", "1")
+# the mock-app contract tests exercise POST /erp/_reset, which is gated off by
+# default (it's an anonymous destructive endpoint in prod).
+os.environ.setdefault("UNDERSTUDY_ENABLE_TEST_HOOKS", "1")
+# local/dev acknowledgement so create_app()'s require_secure() accepts the
+# committed dev JWT secret (production must supply its own).
+os.environ.setdefault("UNDERSTUDY_DEV_MODE", "1")
 
 import pytest
 

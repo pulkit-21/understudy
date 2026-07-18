@@ -1,6 +1,8 @@
 """The central Settings object: env resolution, model split, derived flags."""
 from __future__ import annotations
 
+import pytest
+
 from app.config import Settings
 
 
@@ -43,3 +45,32 @@ def test_bool_toggles_parse_from_string(monkeypatch):
     s = Settings(_env_file=None)
     assert s.ratelimit is False
     assert s.headful is True
+
+
+def test_resolve_url_forces_the_psycopg_driver(monkeypatch):
+    """A Postgres DATABASE_URL is normalized onto the psycopg (v3) driver we
+    ship, so boot doesn't fail selecting the absent psycopg2 dialect."""
+    from app.config import get_settings
+    from app.db.session import resolve_url
+
+    monkeypatch.setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
+    get_settings.cache_clear()
+    assert resolve_url() == "postgresql+psycopg://u:p@h:5432/db"
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@h/db")
+    get_settings.cache_clear()
+    assert resolve_url() == "postgresql+psycopg://u:p@h/db"
+
+
+def test_require_secure_is_fail_closed_on_dev_secret():
+    from app.config import DEV_JWT_SECRET, Settings
+
+    # production (dev_mode off) + committed dev secret -> refuse to boot
+    with pytest.raises(RuntimeError):
+        Settings(_env_file=None, jwt_secret=DEV_JWT_SECRET,
+                 dev_mode=False).require_secure()
+    # explicit dev mode with the dev secret is fine
+    Settings(_env_file=None, jwt_secret=DEV_JWT_SECRET,
+             dev_mode=True).require_secure()
+    # a real secret in production is fine
+    Settings(_env_file=None, jwt_secret="a-real-strong-secret",
+             dev_mode=False).require_secure()

@@ -57,7 +57,8 @@ install: ## Create venv, install backend + frontend deps, browser, build UI
 	cd frontend && npm install && npm run build
 
 dev-native: ## Run API + built UI on http://localhost:8000 (no docker)
-	$(VENV)/bin/uvicorn app.main:app --app-dir backend --reload
+	UNDERSTUDY_DEV_MODE=1 UNDERSTUDY_ENABLE_TEST_HOOKS=1 \
+	  $(VENV)/bin/uvicorn app.main:app --app-dir backend --reload
 
 seed: ## Seed the demo traces + workflows into the database
 	$(PY) scripts/seed_demo.py
@@ -73,7 +74,7 @@ typecheck: ## Type-check with mypy
 	$(VENV)/bin/mypy backend
 
 lint-imports: ## Enforce the layered-architecture import contracts
-	PYTHONPATH=backend UNDERSTUDY_AGENT_MOCK=1 $(VENV)/bin/lint-imports
+	PYTHONPATH=backend UNDERSTUDY_AGENT_MOCK=1 UNDERSTUDY_DEV_MODE=1 $(VENV)/bin/lint-imports
 
 ci: lint typecheck lint-imports test ## Everything CI runs
 

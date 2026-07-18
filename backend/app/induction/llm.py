@@ -74,6 +74,13 @@ def validate_enrichment(draft: WorkflowSpec, enriched: WorkflowSpec) -> None:
         raise InductionError("enrichment altered workflow structure — rejected")
     if {p.key for p in enriched.parameters} != {p.key for p in draft.parameters}:
         raise InductionError("enrichment changed the parameter set — rejected")
+    # The approval policy is resolved at RUN time (runner._policy_auto_approve),
+    # so a changed policy could auto-approve a gated commit even though every
+    # step still shows requires_approval=true. It is not human-readable text —
+    # the LLM has no business touching it. Any change → reject → fall back to the
+    # deterministic draft's policy.
+    if enriched.approval_policy != draft.approval_policy:
+        raise InductionError("enrichment changed the approval policy — rejected")
     if enriched.validate_references():
         raise InductionError("enriched spec inconsistent — rejected")
 
@@ -125,10 +132,12 @@ async def enrich_with_llm(
     # Hard invariants. The LLM may only touch human-readable text.
     validate_enrichment(draft, enriched)
 
-    # Carry forward identity the LLM isn't allowed to set.
+    # Carry forward everything the LLM isn't allowed to set (identity + the
+    # safety-critical approval policy — already equal here, pinned defensively).
     enriched.id = draft.id
     enriched.version = draft.version
     enriched.source_trace_ids = draft.source_trace_ids
+    enriched.approval_policy = draft.approval_policy
     return enriched
 
 

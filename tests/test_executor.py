@@ -118,6 +118,21 @@ async def test_rejection_stops_run_before_commit():
 
 
 @pytest.mark.asyncio
+async def test_reject_arriving_before_the_gate_stops_without_hanging():
+    """Regression: a reject signalled before the run reaches its gate must stop
+    the run (REJECTED), not be swallowed by the gate's _approval.clear() and
+    leave the runner blocked on wait() forever."""
+    spec = spec_with_gate()
+    run = Run(workflow_id=spec.id, params={"amount": "1.00"})
+    sink = FakeSink()
+    runner = Runner(spec, run, sink)
+    runner.reject()  # arrives before execution reaches (or starts) the gate
+    result = await asyncio.wait_for(runner.execute(), timeout=2)  # must not hang
+    assert result.status == RunStatus.REJECTED
+    assert ("click", "post-bill") not in sink.actions  # commit never fired
+
+
+@pytest.mark.asyncio
 async def test_extract_output_feeds_later_fill():
     spec = WorkflowSpec(
         name="provenance",

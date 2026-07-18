@@ -18,6 +18,8 @@ services:
     container_name: understudy-backend
     environment:
       UNDERSTUDY_DATA: /data
+      UNDERSTUDY_DEV_MODE: "1"           # local dev: accept the committed dev JWT secret
+      UNDERSTUDY_ENABLE_TEST_HOOKS: "1"  # local dev: allow /erp/_reset for demo resets
       # Optional — set in a .env file next to this compose file to unlock the
       # LLM legibility pass + the full conversational agent.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

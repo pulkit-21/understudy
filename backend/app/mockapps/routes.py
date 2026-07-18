@@ -165,6 +165,11 @@ def erp_record_payment(
 
 @router.post("/erp/_reset")
 def erp_reset():
-    """Test/eval hook: wipe the ledger so runs start from a known state."""
+    """Test/eval hook: wipe the ledger so runs start from a known state. Disabled
+    unless UNDERSTUDY_ENABLE_TEST_HOOKS is set — otherwise it's an anonymous,
+    destructive endpoint against the shared ledger in production."""
+    from ..config import get_settings
+    if not get_settings().enable_test_hooks:
+        raise HTTPException(404)
     ERP.reset()
     return {"ok": True}

@@ -29,6 +29,7 @@ jobs:
         env:
           PYTHONPATH: backend
           UNDERSTUDY_AGENT_MOCK: "1"
+          UNDERSTUDY_DEV_MODE: "1"
       - name: Test (pytest)
         run: pytest -q
 

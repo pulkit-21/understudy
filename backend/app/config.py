@@ -23,6 +23,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # WORKDIR). backend/app/config.py -> parents[2] is the repo root.
 _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
+# The dev-only JWT secret. Committed on purpose for zero-config local runs; a
+# non-local deploy that still uses it is refused at boot (see require_secure).
+DEV_JWT_SECRET = "understudy-dev-secret-change-me-in-prod-0123456789"
+
 
 class Settings(BaseSettings):
     """Typed application settings, sourced from the environment (prefix
@@ -72,7 +76,7 @@ class Settings(BaseSettings):
 
     # --- auth --------------------------------------------------------------
     jwt_secret: str = Field(
-        default="understudy-dev-secret-change-me-in-prod-0123456789",
+        default=DEV_JWT_SECRET,
         description="HS256 signing secret (UNDERSTUDY_JWT_SECRET). Override in prod.",
     )
 
@@ -82,10 +86,36 @@ class Settings(BaseSettings):
         default=False,
         description="Force the keyless deterministic agent even if a key is set.",
     )
+    enable_test_hooks: bool = Field(
+        default=False,
+        description="Expose destructive test/eval hooks (e.g. POST /erp/_reset). "
+        "Off in production; the test suite and eval harness turn it on.",
+    )
+    dev_mode: bool = Field(
+        default=False,
+        description="Explicit local-dev acknowledgement (UNDERSTUDY_DEV_MODE). "
+        "Required to boot with the committed dev JWT secret; unset in production "
+        "so a real deploy must supply its own secret (fail-closed).",
+    )
 
     @property
     def has_api_key(self) -> bool:
         return bool(self.anthropic_api_key)
+
+    def require_secure(self) -> None:
+        """Fail fast on an insecure production configuration. Called at app
+        startup. Fail-closed: booting with the committed dev JWT secret is only
+        allowed when UNDERSTUDY_DEV_MODE is explicitly set. A real deploy leaves
+        it unset, so it MUST supply its own UNDERSTUDY_JWT_SECRET — otherwise
+        every token it signs is forgeable from the public source. (base_url is
+        not a usable signal: the container pins it to loopback so the executor
+        can drive the same process.)"""
+        if self.jwt_secret == DEV_JWT_SECRET and not self.dev_mode:
+            raise RuntimeError(
+                "Refusing to start with the committed dev JWT secret. Set a "
+                "strong UNDERSTUDY_JWT_SECRET, or UNDERSTUDY_DEV_MODE=1 for "
+                "local development."
+            )
 
     @property
     def use_mock_agent(self) -> bool:

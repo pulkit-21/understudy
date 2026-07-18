@@ -36,6 +36,20 @@ def test_dropping_the_approval_gate_is_rejected(demo_trace):
         validate_enrichment(draft, tampered)
 
 
+def test_changing_the_approval_policy_is_rejected(demo_trace):
+    """A gate is resolved at run time from spec.approval_policy — so an
+    auto-approve policy the LLM slips in would defeat the gate even with
+    requires_approval still true. Any policy change must be rejected."""
+    from app.domain.workflow import ApprovalMode
+
+    draft = _draft(demo_trace)
+    tampered = draft.model_copy(deep=True)
+    tampered.approval_policy.mode = ApprovalMode.AUTO_BELOW_AMOUNT
+    tampered.approval_policy.auto_approve_below = 1_000_000_000
+    with pytest.raises(InductionError):
+        validate_enrichment(draft, tampered)
+
+
 def test_changing_a_target_is_rejected(demo_trace):
     draft = _draft(demo_trace)
     tampered = draft.model_copy(deep=True)

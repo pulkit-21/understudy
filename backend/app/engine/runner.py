@@ -121,6 +121,11 @@ class Runner:
     async def execute(self) -> Run:
         try:
             for i, step in enumerate(self.spec.steps):
+                # A reject can arrive at any await point, including before the
+                # gated step is reached — stop at the next boundary rather than
+                # marching on (and, at the gate, rather than dropping the signal).
+                if self._rejected:
+                    raise ApprovalRejected()
                 self.run.current_step = i
                 await self._gate_if_needed(step)
                 await self._do(step)
@@ -156,6 +161,8 @@ class Runner:
     async def _gate_if_needed(self, step: WorkflowStep) -> None:
         if not step.requires_approval:
             return
+        if self._rejected:                # rejected before we even reached the gate
+            raise ApprovalRejected()
         auto, reason = self._policy_auto_approve()
         if auto:
             self._log("auto_approved", actor="policy",
