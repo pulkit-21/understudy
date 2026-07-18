@@ -114,7 +114,7 @@ def test_run_batch_starts_one_run_per_value(demo_trace, org_id, monkeypatch):
     class _Stub:
         id = "run-stub"
 
-    def fake_start(spec, params, org_id, batch_id=None):
+    def fake_start(spec, params, org_id, batch_id=None, dry_run=False):
         started.append(params)
         return _Stub()
 

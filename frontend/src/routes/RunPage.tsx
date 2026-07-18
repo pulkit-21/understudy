@@ -134,6 +134,10 @@ export function RunPage() {
             ↻ Run again
           </button>
         )}
+        {run?.dry_run && (
+          <span className="badge gate" title="Preview run — nothing was committed"
+                style={{ marginRight: 8 }}>preview</span>
+        )}
         <span className={"status-pill status-" + status}>
           <span className="dot" />
           {status.replace("_", " ")}

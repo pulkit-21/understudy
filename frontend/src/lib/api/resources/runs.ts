@@ -8,9 +8,9 @@ export const runsApi = {
     ).toString();
     return req<RunSummary[]>("/api/runs" + (q ? `?${q}` : ""));
   },
-  startRun: (wfId: string, params: Record<string, string>) =>
+  startRun: (wfId: string, params: Record<string, string>, dry_run = false) =>
     req<{ run_id: string }>(`/api/workflows/${wfId}/runs`, {
-      method: "POST", body: JSON.stringify({ params }),
+      method: "POST", body: JSON.stringify({ params, dry_run }),
     }),
   startBatch: (wfId: string, param_values: string[], param_key?: string) =>
     req<{ batch_id: string; run_ids: string[]; count: number }>(

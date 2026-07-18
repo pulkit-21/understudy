@@ -66,6 +66,7 @@ class Run(BaseModel):
     current_step: int = 0
     events: list[RunEvent] = Field(default_factory=list)
     extracts: dict[str, str] = Field(default_factory=dict)
+    dry_run: bool = False   # preview: execute up to the gate, never commit
 
 
 # ---- the sink boundary -------------------------------------------------------
@@ -127,6 +128,18 @@ class Runner:
                 if self._rejected:
                     raise ApprovalRejected()
                 self.run.current_step = i
+                # Dry run: preview everything up to the first irreversible step,
+                # then STOP without committing (the form was filled with the
+                # resolved values, but never submitted — nothing is written).
+                if self.run.dry_run and step.requires_approval:
+                    self._log("dry_run_preview", step_id=step.id,
+                              detail=f"Dry run — would {step.intent}. "
+                                     "Nothing was committed.")
+                    self.run.status = RunStatus.COMPLETED
+                    self._log("run_done",
+                              detail="Dry run complete: previewed up to the "
+                                     "approval gate; no changes were made.")
+                    return self.run
                 await self._gate_if_needed(step)
                 await self._do(step)
             self.run.status = RunStatus.COMPLETED

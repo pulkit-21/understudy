@@ -27,6 +27,7 @@ class InduceMultiBody(BaseModel):
 
 class RunBody(BaseModel):
     params: dict[str, str] = {}
+    dry_run: bool = False    # preview: run up to the gate, commit nothing
 
 
 class BatchBody(BaseModel):

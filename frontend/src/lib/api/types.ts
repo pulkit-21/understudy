@@ -92,6 +92,7 @@ export interface RunSummary {
   steps: number;
   batch_id?: string | null;
   cost_usd?: number;
+  dry_run?: boolean;
 }
 
 export interface RunEvent {
@@ -110,6 +111,7 @@ export interface Run {
   current_step: number;
   events: RunEvent[];
   extracts: Record<string, string>;
+  dry_run?: boolean;
 }
 
 export interface AuthUser {

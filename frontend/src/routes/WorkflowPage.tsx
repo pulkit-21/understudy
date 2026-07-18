@@ -117,10 +117,10 @@ export function WorkflowPage() {
     catch (e) { fail(e); }
   }
 
-  async function run() {
+  async function run(dryRun = false) {
     setStarting(true); setError(null);
     try {
-      const { run_id } = await api.startRun(id, params);
+      const { run_id } = await api.startRun(id, params, dryRun);
       nav(`/runs/${run_id}`);
     } catch (e) { fail(e); setStarting(false); }
   }
@@ -255,8 +255,13 @@ export function WorkflowPage() {
                    onChange={(e) => setParams({ ...params, [p.key]: e.target.value })} />
           </div>
         ))}
-        <button className="btn primary big" disabled={starting} onClick={run}>
+        <button className="btn primary big" disabled={starting} onClick={() => run(false)}>
           {starting ? "Starting…" : "Run once"}
+        </button>
+        <button className="btn big" disabled={starting} onClick={() => run(true)}
+                title="Preview: runs up to the approval gate and stops — nothing is committed"
+                style={{ marginLeft: 8 }}>
+          Dry run
         </button>
         {dirty && <span className="meta" style={{ marginLeft: 12 }}>
           Unsaved edits won’t affect this run until you save.</span>}

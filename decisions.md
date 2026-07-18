@@ -1406,3 +1406,25 @@ varied vs stayed constant.
 vendor-onboarding demo, recorded once, makes all four fields parameters; a second
 recording where "Payment terms" is again "Net 30" proves it's a constant and
 demotes it. Verified end-to-end (unit + service + live API). 129 → 134 tests.
+
+---
+
+## D55 — Feature: dry-run / preview mode
+
+**What.** Run a workflow in "preview": it navigates, reads live values, and
+fills the target form exactly as a real run would — but STOPS at the first
+irreversible (gated) step without executing it. Nothing is committed.
+
+**How.** `Run.dry_run` flag threaded from the API (`RunBody.dry_run`) →
+`RunService.start` → `RunManager.start_run` → `Runner`. In the execute loop, on
+reaching a `requires_approval` step under dry-run, the runner logs a
+`dry_run_preview` (what it *would* commit) and completes — no approval pause, no
+submit. The run summary carries `dry_run` so the UI badges it "preview". A
+"Dry run" button sits next to "Run once" on the workflow page.
+
+**Why it matters.** It lets an operator see exactly what a workflow will read
+and do on a given input — before trusting it with the irreversible step. Reuses
+the real engine (same navigation + extraction), so the preview is faithful, not
+a simulation. Verified end-to-end: a dry run on INV-1005 read the live vendor/
+amount/GL, logged the preview, completed, and posted **no** bill to the ERP.
+135 tests green.

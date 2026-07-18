@@ -118,6 +118,23 @@ async def test_rejection_stops_run_before_commit():
 
 
 @pytest.mark.asyncio
+async def test_dry_run_previews_up_to_the_gate_without_committing():
+    """A dry run resolves + fills everything but STOPS at the first gated step —
+    it never clicks the commit, so nothing is written; ends COMPLETED."""
+    spec = spec_with_gate()
+    run = Run(workflow_id=spec.id, params={"amount": "42.00"}, dry_run=True)
+    sink = FakeSink()
+    result = await asyncio.wait_for(Runner(spec, run, sink).execute(), timeout=2)
+
+    assert result.status == RunStatus.COMPLETED
+    assert ("fill", "field-amount", "42.00") in sink.actions   # form was filled
+    assert ("click", "post-bill") not in sink.actions          # commit NOT executed
+    kinds = [e.kind for e in run.events]
+    assert "dry_run_preview" in kinds
+    assert "awaiting_approval" not in kinds                     # never paused a human
+
+
+@pytest.mark.asyncio
 async def test_reject_arriving_before_the_gate_stops_without_hanging():
     """Regression: a reject signalled before the run reaches its gate must stop
     the run (REJECTED), not be swallowed by the gate's _approval.clear() and

@@ -33,8 +33,9 @@ class RunManager:
         self._tasks: dict[str, asyncio.Task] = {}
 
     def start_run(self, spec: WorkflowSpec, params: dict[str, str],
-                  org_id: str, batch_id: str | None = None) -> Run:
-        run = Run(workflow_id=spec.id, params=params)
+                  org_id: str, batch_id: str | None = None,
+                  dry_run: bool = False) -> Run:
+        run = Run(workflow_id=spec.id, params=params, dry_run=dry_run)
         queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
         self.runs[run.id] = run
         self.run_org[run.id] = org_id

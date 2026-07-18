@@ -235,6 +235,7 @@ class RunRepo:
         return {"id": r.id, "workflow_id": r.workflow_id, "status": r.status,
                 "created_at": r.created_at, "params": r.params,
                 "batch_id": r.batch_id, "cost_usd": r.cost_usd,
+                "dry_run": bool(r.payload.get("dry_run")),
                 "steps": len(r.payload.get("events", []))}
 
 

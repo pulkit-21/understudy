@@ -30,7 +30,8 @@ async def start_run(wf_id: str, body: RunBody, request: Request,
                     user: User = Depends(current_user),
                     svc: RunService = Depends(get_run_service)):
     # async so RunManager.start_run's asyncio.create_task has a running loop.
-    return {"run_id": svc.start(wf_id, body.params, user.org_id).id}
+    return {"run_id": svc.start(wf_id, body.params, user.org_id,
+                                dry_run=body.dry_run).id}
 
 
 @router.post("/workflows/{wf_id}/batch")

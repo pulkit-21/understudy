@@ -24,15 +24,18 @@ class RunService:
         return spec
 
     def _launch(self, spec: WorkflowSpec, params: dict[str, str], org_id: str,
-                batch_id: str | None = None) -> Run:
+                batch_id: str | None = None, dry_run: bool = False) -> Run:
         missing = [p.key for p in spec.parameters
                    if p.required and p.key not in params]
         if missing:
             raise Invalid(f"missing parameters: {missing}")
-        return self.runs.start_run(spec, params, org_id, batch_id=batch_id)
+        return self.runs.start_run(spec, params, org_id, batch_id=batch_id,
+                                   dry_run=dry_run)
 
-    def start(self, wf_id: str, params: dict[str, str], org_id: str) -> Run:
-        return self._launch(self._load_spec(wf_id, org_id), params, org_id)
+    def start(self, wf_id: str, params: dict[str, str], org_id: str,
+              dry_run: bool = False) -> Run:
+        return self._launch(self._load_spec(wf_id, org_id), params, org_id,
+                            dry_run=dry_run)
 
     def start_batch(self, wf_id: str, param_values: list[str],
                     param_key: str | None, defaults: dict[str, str],
