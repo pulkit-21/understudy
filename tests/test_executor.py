@@ -22,9 +22,17 @@ from app.engine.runner import Run, Runner, RunStatus
 
 
 class FakeSink:
-    def __init__(self, extract_values=None):
+    def __init__(self, extract_values=None, present_testids=None):
         self.actions: list[tuple] = []
         self.extract_values = extract_values or {}
+        # None => every target resolves; a set => only those testids are present
+        # (simulates a redesign that "moved" the others), for preflight/drift.
+        self.present = present_testids
+
+    async def preflight(self, target):
+        if self.present is None or target.testid in self.present:
+            return "testid"
+        raise LookupError(f"missing {target.testid}")
 
     async def navigate(self, url):
         self.actions.append(("navigate", url))
@@ -197,3 +205,27 @@ def test_validate_references_catches_ungated_commit():
     )
     problems = spec.validate_references()
     assert any("requires_approval" in p for p in problems)
+
+
+@pytest.mark.asyncio
+async def test_preflight_flags_a_drifted_target():
+    """Drift check: a target whose testid 'moved' is reported missing, without
+    acting on the page."""
+    from app.engine.runner import preflight_workflow
+    spec = spec_with_gate()  # targets: field-amount (fill), post-bill (commit)
+    sink = FakeSink(present_testids={"field-amount"})  # post-bill drifted away
+    report = await preflight_workflow(sink, spec, {"amount": "1.00"})
+    amount = next(r for r in report if "amount" in r["intent"])
+    commit = next(r for r in report if r["action"] == "click")
+    assert amount["found"] is True and amount["via"] == "testid"
+    assert commit["found"] is False and commit["via"] == "missing"
+    assert sink.actions == []  # preflight never acts
+
+
+def test_parse_locator_reply_variants():
+    from app.clients.llm import parse_locator_reply
+    assert parse_locator_reply("#post-bill") == "#post-bill"
+    assert parse_locator_reply("```\n.btn.primary\n```") == ".btn.primary"
+    assert parse_locator_reply('{"css": "button[name=post]"}') == "button[name=post]"
+    assert parse_locator_reply("NONE") is None
+    assert parse_locator_reply("  ") is None

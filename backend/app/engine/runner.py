@@ -79,6 +79,32 @@ class ActionSink(Protocol):
     async def extract(self, target: TargetInfo) -> tuple[str, str]: ...
     async def assert_text(self, target: TargetInfo, expected: str) -> str: ...
     async def screenshot(self) -> bytes | None: ...
+    async def preflight(self, target: TargetInfo) -> str: ...
+
+
+async def preflight_workflow(sink: ActionSink, spec: WorkflowSpec,
+                             params: dict[str, str]) -> list[dict]:
+    """Walk the spec and check each target still resolves on the live pages,
+    WITHOUT acting — a drift check. Navigates on navigate steps; for every
+    target-bearing step reports found + strategy, or missing. Read-only and
+    LLM-free (the deterministic chain is what we're auditing)."""
+    report: list[dict] = []
+    for step in spec.steps:
+        if step.action == ActionType.NAVIGATE and step.url:
+            # unresolved ref / nav error -> later target checks will show missing
+            with contextlib.suppress(Exception):
+                await sink.navigate(render_template(step.url, params))
+        elif step.target is not None:
+            entry: dict[str, object] = {"intent": step.intent,
+                                        "action": step.action.value}
+            try:
+                entry["via"] = await sink.preflight(step.target)
+                entry["found"] = True
+            except LookupError:
+                entry["via"] = "missing"
+                entry["found"] = False
+            report.append(entry)
+    return report
 
 
 # ---- runner -------------------------------------------------------------------
@@ -260,8 +286,9 @@ class PlaywrightSink:
     def __init__(self, page) -> None:
         self.page = page
 
-    async def _locate(self, t: TargetInfo):
-        """testid -> role+name -> css. Returns (locator, strategy_name)."""
+    async def _locate(self, t: TargetInfo, use_llm_fallback: bool = True):
+        """testid -> role+name -> css -> (last resort) LLM. Returns
+        (locator, strategy_name)."""
         if t.testid:
             loc = self.page.get_by_test_id(t.testid)
             if await loc.count():
@@ -274,7 +301,42 @@ class PlaywrightSink:
             loc = self.page.locator(t.css)
             if await loc.count():
                 return loc.first, "css"
+        # Every deterministic strategy missed (e.g. a redesign renamed both the
+        # test id and the accessible name). Ask the LLM for a selector — a
+        # transparent, reported fallback, never the happy path.
+        if use_llm_fallback:
+            css = await self._llm_locate(t)
+            if css:
+                loc = self.page.locator(css)
+                if await loc.count():
+                    return loc.first, "llm"
         raise LookupError(f"could not locate {t.describe()}")
+
+    async def _llm_locate(self, t: TargetInfo) -> str | None:
+        from ..clients.llm import propose_locator
+        try:
+            candidates = await self.page.eval_on_selector_all(
+                "a,button,input,select,textarea,[role],[data-testid]",
+                """els => els.slice(0, 60).map(e => ({
+                    tag: e.tagName.toLowerCase(),
+                    text: (e.innerText || e.value || '').slice(0, 40),
+                    id: e.id || null, name: e.getAttribute('name'),
+                    placeholder: e.getAttribute('placeholder'),
+                    aria: e.getAttribute('aria-label'),
+                    role: e.getAttribute('role'),
+                    testid: e.getAttribute('data-testid'),
+                }))""",
+            )
+            target = {"role": t.role, "name": t.name, "testid": t.testid, "tag": t.tag}
+            return await propose_locator(target, candidates)
+        except Exception:
+            return None  # the fallback must never itself crash a run
+
+    async def preflight(self, target: TargetInfo) -> str:
+        """Locate WITHOUT acting or invoking the LLM — for drift checks. Returns
+        the deterministic strategy that found it, or raises LookupError."""
+        _, how = await self._locate(target, use_llm_fallback=False)
+        return how
 
     async def navigate(self, url: str) -> None:
         await self.page.goto(url, wait_until="load")

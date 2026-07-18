@@ -37,6 +37,21 @@ class RunService:
         return self._launch(self._load_spec(wf_id, org_id), params, org_id,
                             dry_run=dry_run)
 
+    async def preflight(self, wf_id: str, params: dict[str, str],
+                        org_id: str) -> dict:
+        """Check the workflow's targets against the live pages (drift report),
+        without running it. Missing params fall back to their recorded example."""
+        spec = self._load_spec(wf_id, org_id)
+        filled = dict(params)
+        for p in spec.parameters:
+            filled.setdefault(p.key, p.example or "")
+        report = await self.runs.preflight(spec, filled)
+        missing = [r for r in report if not r["found"]]
+        healed = [r for r in report if r.get("via") not in (None, "testid", "missing")]
+        return {"report": report, "total": len(report),
+                "missing": len(missing), "healed": len(healed),
+                "ok": not missing}
+
     def start_batch(self, wf_id: str, param_values: list[str],
                     param_key: str | None, defaults: dict[str, str],
                     org_id: str) -> dict:

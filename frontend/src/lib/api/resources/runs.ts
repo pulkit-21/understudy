@@ -17,6 +17,13 @@ export const runsApi = {
       `/api/workflows/${wfId}/batch`, {
         method: "POST", body: JSON.stringify({ param_values, param_key }),
       }),
+  preflight: (wfId: string, params: Record<string, string>) =>
+    req<{
+      report: { intent: string; action: string; found: boolean; via: string }[];
+      total: number; missing: number; healed: number; ok: boolean;
+    }>(`/api/workflows/${wfId}/preflight`, {
+      method: "POST", body: JSON.stringify({ params }),
+    }),
   getRun: (id: string) => req<Run>(`/api/runs/${id}`),
   retryRun: (id: string) =>
     req<{ run_id: string }>(`/api/runs/${id}/retry`, { method: "POST" }),

@@ -43,6 +43,16 @@ async def start_batch(wf_id: str, body: BatchBody, request: Request,
                            body.defaults, user.org_id)
 
 
+@router.post("/workflows/{wf_id}/preflight")
+@limiter.limit("10/minute")
+async def preflight(wf_id: str, body: RunBody, request: Request,
+                    user: User = Depends(current_user),
+                    svc: RunService = Depends(get_run_service)):
+    """Drift check: do the workflow's targets still resolve on the live pages?
+    Runs a browser read-only, commits nothing."""
+    return await svc.preflight(wf_id, body.params, user.org_id)
+
+
 @router.get("/runs")
 def list_runs(user: User = Depends(current_user),
               status: str | None = None, batch_id: str | None = None,

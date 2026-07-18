@@ -56,6 +56,10 @@ export function WorkflowPage() {
   const [saved, setSaved] = useState(false);
   const [params, setParams] = useState<Record<string, string>>({});
   const [starting, setStarting] = useState(false);
+  const [preflight, setPreflight] = useState<
+    { ok: boolean; missing: number; healed: number;
+      report: { intent: string; found: boolean; via: string }[] } | null>(null);
+  const [checking, setChecking] = useState(false);
   const [batchText, setBatchText] = useState("");
   const [versions, setVersions] = useState<WorkflowVersion[] | null>(null);
 
@@ -123,6 +127,13 @@ export function WorkflowPage() {
       const { run_id } = await api.startRun(id, params, dryRun);
       nav(`/runs/${run_id}`);
     } catch (e) { fail(e); setStarting(false); }
+  }
+  async function checkDrift() {
+    setChecking(true); setError(null); setPreflight(null);
+    try {
+      setPreflight(await api.preflight(id, params));
+    } catch (e) { fail(e); }
+    finally { setChecking(false); }
   }
   async function runBatch() {
     const values = batchText.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
@@ -263,8 +274,33 @@ export function WorkflowPage() {
                 style={{ marginLeft: 8 }}>
           Dry run
         </button>
+        <button className="btn big" disabled={checking} onClick={checkDrift}
+                title="Check the workflow's targets against the live pages — read-only"
+                style={{ marginLeft: 8 }}>
+          {checking ? "Checking…" : "Check target health"}
+        </button>
         {dirty && <span className="meta" style={{ marginLeft: 12 }}>
           Unsaved edits won’t affect this run until you save.</span>}
+
+        {preflight && (
+          <div className={"banner " + (preflight.ok ? "success" : "warn")}
+               style={{ marginTop: 14, flexDirection: "column", alignItems: "stretch" }}>
+            <div><strong>
+              {preflight.ok
+                ? "✓ All targets resolve on the live pages."
+                : `⚠ ${preflight.missing} target(s) not found — the site may have drifted.`}
+            </strong>{preflight.healed > 0 &&
+              ` ${preflight.healed} healed via a fallback strategy.`}</div>
+            <div className="log" style={{ marginTop: 8 }}>
+              {preflight.report.map((r, i) => (
+                <div key={i} className="meta">
+                  {r.found ? (r.via === "testid" ? "✓" : "↻") : "✗"} {r.intent}
+                  {" "}<span className="chip">{r.found ? r.via : "missing"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ---- batch (single-param here; multi-param batches via the Assistant) ---- */}

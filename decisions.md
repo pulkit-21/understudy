@@ -1428,3 +1428,28 @@ the real engine (same navigation + extraction), so the preview is faithful, not
 a simulation. Verified end-to-end: a dry run on INV-1005 read the live vendor/
 amount/GL, logged the preview, completed, and posted **no** bill to the ERP.
 135 tests green.
+
+---
+
+## D56 — Feature: LLM locator fallback + drift pre-flight
+
+**LLM locator fallback.** Extended `PlaywrightSink._locate` with a last-resort
+step: when testid → role+name → css all miss (e.g. a redesign renamed both the
+test id AND the accessible name), it asks the LLM for a CSS selector given the
+target and the page's interactive elements (`clients.llm.propose_locator`,
+`prompts/locator.py`), tries it, and — if it resolves — reports the hop as
+strategy "llm" (the runner already logs non-testid hops as "healed via …"). It's
+behind `LLMUnavailable` (no key → deterministic behavior unchanged), never
+crashes a run, and is never the happy path — determinism first.
+
+**Drift pre-flight.** `preflight_workflow` walks the spec and checks every target
+against the LIVE pages WITHOUT acting or using the LLM — a read-only drift report
+(found + strategy, or missing). Exposed via `POST /api/workflows/{id}/preflight`
+and a "Check target health" button on the workflow page: green when everything
+resolves, a warning listing what drifted otherwise. Lets an operator catch a
+broken selector before a run instead of during one.
+
+Tests: drift traversal (a "moved" testid → missing, no actions taken) and the
+locator-reply parser (pure). Verified live: pre-flight on the invoice workflow
+resolved all 10 targets via testid. 135 → 137 tests; ruff + mypy + import-linter
+clean.

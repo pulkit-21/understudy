@@ -10,7 +10,14 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from ..domain.workflow import WorkflowSpec
-from .runner import PlaywrightSink, Run, RunEvent, Runner, RunStatus
+from .runner import (
+    PlaywrightSink,
+    Run,
+    RunEvent,
+    Runner,
+    RunStatus,
+    preflight_workflow,
+)
 
 if TYPE_CHECKING:
     from ..repos import RunRepo
@@ -44,6 +51,21 @@ class RunManager:
         self._tasks[run.id] = asyncio.create_task(
             self._execute(spec, run, queue, org_id, batch_id))
         return run
+
+    async def preflight(self, spec: WorkflowSpec,
+                        params: dict[str, str]) -> list[dict]:
+        """Launch a browser and check the workflow's targets against the live
+        pages without running it — a drift report. Bounded by the same worker
+        pool as real runs."""
+        from playwright.async_api import async_playwright
+
+        async with self._sem, async_playwright() as pw:
+            browser = await pw.chromium.launch(headless=self.headless)
+            page = await browser.new_page()
+            try:
+                return await preflight_workflow(PlaywrightSink(page), spec, params)
+            finally:
+                await browser.close()
 
     async def _execute(self, spec: WorkflowSpec, run: Run,
                        queue: asyncio.Queue, org_id: str,
