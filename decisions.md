@@ -1364,3 +1364,22 @@ Closed the remaining review items; 125 → **129 tests**, all gates clean.
 Documented-and-left (conscious tradeoffs, not bugs): auth token in localStorage,
 a couple of intentionally-silent frontend catches, and the `useAsync`
 exhaustive-deps escape hatch.
+
+---
+
+## D53 — Recorder app-switcher lives in the recorder chrome, not the mock apps
+
+**Decision.** Reverted the cross-app link I'd briefly added to the mock apps'
+shared header and moved it into the recorder's own floating widget: while
+recording, the bar shows a "Go to app: Vendra · LedgerOne" switcher that
+navigates via `location.href`.
+
+**Reasoning.** Vendra and LedgerOne are meant to be *independent third-party
+systems* — Understudy's job is to move data across that boundary. A link baked
+into Vendra's chrome (a) broke that fiction and (b) polluted the learned
+workflow with a `click` on a mock-specific element that wouldn't exist on a real
+portal. Putting the switcher in the recorder overlay keeps the systems
+independent and records the crossing as a clean `navigate` event (like typing a
+URL / opening a bookmark) — the same shape as the seeded demo trace, and one
+that generalizes. Verified: recording persists across the jump and the trace
+contains `navigate /portal` → `navigate /erp` with no spurious click.

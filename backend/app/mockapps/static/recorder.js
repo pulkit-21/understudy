@@ -19,6 +19,13 @@
   const EVENTS = "understudy_rec_events"; // [SemanticEvent]
   const TOKEN = "understudy_token";
 
+  // The workspace's known apps, offered as quick jumps in the recorder chrome.
+  // (In a real product this would come from the org's connected apps.)
+  const APPS = [
+    { label: "Vendra", path: "/portal" },
+    { label: "LedgerOne", path: "/erp" },
+  ];
+
   const load = (k, d) => { try { return JSON.parse(sessionStorage.getItem(k)) ?? d; } catch { return d; } };
   const save = (k, v) => sessionStorage.setItem(k, JSON.stringify(v));
 
@@ -160,11 +167,16 @@
   function buildWidget() {
     widget = document.createElement("div");
     widget.id = "understudy-rec-widget";
+    const cur = location.pathname.startsWith("/erp") ? "/erp" : "/portal";
+    const jumps = APPS
+      .map((a) => `<button class="rjump${a.path === cur ? " on" : ""}" data-path="${a.path}">${a.label}</button>`)
+      .join("");
     widget.innerHTML = `
       <style>
         #understudy-rec-widget{position:fixed;bottom:20px;right:20px;z-index:2147483647;
           background:#1b2330;color:#fff;border-radius:12px;padding:12px 14px;font:14px system-ui,sans-serif;
-          box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;align-items:center;gap:12px;min-width:260px}
+          box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:10px;min-width:300px}
+        #understudy-rec-widget .rrow{display:flex;align-items:center;gap:12px}
         #understudy-rec-widget .rdot{width:11px;height:11px;border-radius:50%;background:#e5484d;animation:rblink 1.1s infinite}
         @keyframes rblink{0%,100%{opacity:1}50%{opacity:.25}}
         #understudy-rec-widget .rtxt{flex:1;line-height:1.3}
@@ -173,15 +185,28 @@
         #understudy-rec-widget button{border:none;border-radius:8px;padding:7px 12px;font:inherit;font-weight:600;cursor:pointer}
         #understudy-rec-widget .rstop{background:#e5484d;color:#fff}
         #understudy-rec-widget .rcancel{background:transparent;color:#9aa4b2}
+        #understudy-rec-widget .rjumps{display:flex;align-items:center;gap:6px;border-top:1px solid #2c3646;padding-top:9px}
+        #understudy-rec-widget .rjumps span{color:#9aa4b2;font-size:12.5px;margin-right:2px}
+        #understudy-rec-widget .rjump{background:#2a3546;color:#cdd5e0;font-size:12.5px;padding:5px 11px}
+        #understudy-rec-widget .rjump.on{background:#3a4763;color:#fff;cursor:default}
       </style>
-      <span class="rdot"></span>
-      <span class="rtxt"><b>Recording your demonstration</b><small><span id="urec-n">0</span> steps captured</small></span>
-      <button class="rstop">Stop &amp; save</button>
-      <button class="rcancel">Cancel</button>`;
+      <div class="rrow">
+        <span class="rdot"></span>
+        <span class="rtxt"><b>Recording your demonstration</b><small><span id="urec-n">0</span> steps captured</small></span>
+        <button class="rstop">Stop &amp; save</button>
+        <button class="rcancel">Cancel</button>
+      </div>
+      <div class="rjumps"><span>Go to app:</span>${jumps}</div>`;
     document.body.appendChild(widget);
     countEl = widget.querySelector("#urec-n");
     widget.querySelector(".rstop").addEventListener("click", stop);
     widget.querySelector(".rcancel").addEventListener("click", cancel);
+    // App switcher lives in the recorder's OWN chrome, not the mock apps'.
+    // Navigating via location.href is captured as a clean `navigate` event on
+    // the next page's load (like typing a URL / opening a bookmark) — the two
+    // systems stay independent and the learned step generalizes.
+    widget.querySelectorAll(".rjump:not(.on)").forEach((b) =>
+      b.addEventListener("click", () => { location.href = b.dataset.path; }));
     updateWidget(events().length);
   }
   function updateWidget(n) { if (countEl) countEl.textContent = String(n); }

@@ -69,8 +69,8 @@ export function TracesPage() {
           <div><b>Teach Understudy by doing the task once.</b></div>
           <ol style={{ margin: "8px 0", paddingLeft: 20 }}>
             <li>You'll land in <b>Vendra</b> (the invoice portal) with recording on.</li>
-            <li>Open an invoice and read it, then switch to <b>LedgerOne</b> using the
-                <b> Vendra / LedgerOne</b> links in the top bar, enter the bill, and post it.</li>
+            <li>Open an invoice and read it, then switch to <b>LedgerOne</b> with the
+                <b> Go to app</b> buttons in the recorder bar, enter the bill, and post it.</li>
             <li>Click <b>Stop &amp; save</b> in the recorder widget — Understudy learns the procedure.</li>
           </ol>
           <div style={{ display: "flex", gap: 8 }}>
