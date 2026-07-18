@@ -1,0 +1,200 @@
+{
+  "id": "demo-seed-001",
+  "name": "Post vendor invoice to LedgerOne",
+  "started_at": "2026-07-18T13:07:44.597811Z",
+  "start_url": "http://localhost:8000/portal",
+  "events": [
+    {
+      "type": "navigate",
+      "url": "http://localhost:8000/portal",
+      "ts_ms": 1000,
+      "target": null,
+      "value": null,
+      "page_title": "Vendra \u2014 Invoices",
+      "page_text": "Received invoices INV-1001 Northwind Logistics 2026-06-02 USD 4820.00 Open INV-1002 Cloudpeak Hosting \u2026",
+      "readable_fields": []
+    },
+    {
+      "type": "click",
+      "url": "http://localhost:8000/portal",
+      "ts_ms": 2500,
+      "target": {
+        "role": "link",
+        "name": "Open",
+        "testid": "open-INV-1001",
+        "css": null,
+        "tag": "a"
+      },
+      "value": null,
+      "page_title": null,
+      "page_text": null,
+      "readable_fields": []
+    },
+    {
+      "type": "navigate",
+      "url": "http://localhost:8000/portal/invoice/INV-1001",
+      "ts_ms": 4000,
+      "target": null,
+      "value": null,
+      "page_title": "Vendra \u2014 INV-1001",
+      "page_text": "Invoice INV-1001 Invoice number INV-1001 Vendor Northwind Logistics Invoice date 2026-06-02 Amount 4820.00 Currency USD Suggested GL code 6100 Memo Freight",
+      "readable_fields": [
+        {
+          "testid": "inv-number",
+          "label": "Invoice number",
+          "value": "INV-1001",
+          "role": null,
+          "name": null
+        },
+        {
+          "testid": "inv-vendor",
+          "label": "Vendor",
+          "value": "Northwind Logistics",
+          "role": null,
+          "name": null
+        },
+        {
+          "testid": "inv-date",
+          "label": "Invoice date",
+          "value": "2026-06-02",
+          "role": null,
+          "name": null
+        },
+        {
+          "testid": "inv-amount",
+          "label": "Amount",
+          "value": "4820.00",
+          "role": null,
+          "name": null
+        },
+        {
+          "testid": "inv-currency",
+          "label": "Currency",
+          "value": "USD",
+          "role": null,
+          "name": null
+        },
+        {
+          "testid": "inv-gl",
+          "label": "Suggested GL code",
+          "value": "6100",
+          "role": null,
+          "name": null
+        },
+        {
+          "testid": "inv-memo",
+          "label": "Memo",
+          "value": "Freight",
+          "role": null,
+          "name": null
+        }
+      ]
+    },
+    {
+      "type": "navigate",
+      "url": "http://localhost:8000/erp/new",
+      "ts_ms": 5500,
+      "target": null,
+      "value": null,
+      "page_title": "LedgerOne \u2014 New bill",
+      "page_text": "Enter new bill Vendor name Invoice number Invoice date Amount GL code Post bill",
+      "readable_fields": []
+    },
+    {
+      "type": "fill",
+      "url": "http://localhost:8000/erp/new",
+      "ts_ms": 7000,
+      "target": {
+        "role": "textbox",
+        "name": "Vendor name",
+        "testid": "field-vendor",
+        "css": null,
+        "tag": "input"
+      },
+      "value": "Northwind Logistics",
+      "page_title": null,
+      "page_text": null,
+      "readable_fields": []
+    },
+    {
+      "type": "fill",
+      "url": "http://localhost:8000/erp/new",
+      "ts_ms": 8500,
+      "target": {
+        "role": "textbox",
+        "name": "Invoice number",
+        "testid": "field-invoice-number",
+        "css": null,
+        "tag": "input"
+      },
+      "value": "INV-1001",
+      "page_title": null,
+      "page_text": null,
+      "readable_fields": []
+    },
+    {
+      "type": "fill",
+      "url": "http://localhost:8000/erp/new",
+      "ts_ms": 10000,
+      "target": {
+        "role": "textbox",
+        "name": "Invoice date",
+        "testid": "field-invoice-date",
+        "css": null,
+        "tag": "input"
+      },
+      "value": "2026-06-02",
+      "page_title": null,
+      "page_text": null,
+      "readable_fields": []
+    },
+    {
+      "type": "fill",
+      "url": "http://localhost:8000/erp/new",
+      "ts_ms": 11500,
+      "target": {
+        "role": "textbox",
+        "name": "Amount",
+        "testid": "field-amount",
+        "css": null,
+        "tag": "input"
+      },
+      "value": "4820.00",
+      "page_title": null,
+      "page_text": null,
+      "readable_fields": []
+    },
+    {
+      "type": "select",
+      "url": "http://localhost:8000/erp/new",
+      "ts_ms": 13000,
+      "target": {
+        "role": "combobox",
+        "name": "GL code",
+        "testid": "field-gl-code",
+        "css": null,
+        "tag": "select"
+      },
+      "value": "6100",
+      "page_title": null,
+      "page_text": null,
+      "readable_fields": []
+    },
+    {
+      "type": "submit",
+      "url": "http://localhost:8000/erp/new",
+      "ts_ms": 14500,
+      "target": {
+        "role": "button",
+        "name": "Post bill",
+        "testid": "post-bill",
+        "css": null,
+        "tag": "button"
+      },
+      "value": null,
+      "page_title": null,
+      "page_text": null,
+      "readable_fields": []
+    }
+  ]
+}

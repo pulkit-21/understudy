@@ -1,0 +1,229 @@
+{
+  "id": "wf-demo-seed-001",
+  "name": "Post vendor invoice to LedgerOne",
+  "description": "Learned from demonstration 'Post vendor invoice to LedgerOne'.",
+  "version": 1,
+  "status": "published",
+  "tags": [],
+  "approval_policy": {
+    "mode": "always_ask",
+    "auto_approve_below": null,
+    "amount_key": "amount"
+  },
+  "source_trace_ids": [
+    "demo-seed-001"
+  ],
+  "parameters": [
+    {
+      "key": "invoice_id",
+      "description": "Value entered during demonstration (example: INV-1001)",
+      "example": "INV-1001",
+      "required": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "78411a36",
+      "intent": "Open Vendra \u2014 Invoices",
+      "action": "navigate",
+      "target": null,
+      "value": null,
+      "url": "http://localhost:8000/portal",
+      "extract_key": null,
+      "risk": "read",
+      "requires_approval": false
+    },
+    {
+      "id": "12defcc6",
+      "intent": "Open invoice {{invoice_id}}",
+      "action": "navigate",
+      "target": null,
+      "value": null,
+      "url": "http://localhost:8000/portal/invoice/{{invoice_id}}",
+      "extract_key": null,
+      "risk": "read",
+      "requires_approval": false
+    },
+    {
+      "id": "a82338ff",
+      "intent": "Read Vendor from the source page",
+      "action": "extract",
+      "target": {
+        "role": null,
+        "name": "Vendor",
+        "testid": "inv-vendor",
+        "css": null,
+        "tag": null
+      },
+      "value": null,
+      "url": null,
+      "extract_key": "vendor",
+      "risk": "read",
+      "requires_approval": false
+    },
+    {
+      "id": "8350f912",
+      "intent": "Read Invoice date from the source page",
+      "action": "extract",
+      "target": {
+        "role": null,
+        "name": "Invoice date",
+        "testid": "inv-date",
+        "css": null,
+        "tag": null
+      },
+      "value": null,
+      "url": null,
+      "extract_key": "date",
+      "risk": "read",
+      "requires_approval": false
+    },
+    {
+      "id": "e2bce9a6",
+      "intent": "Read Amount from the source page",
+      "action": "extract",
+      "target": {
+        "role": null,
+        "name": "Amount",
+        "testid": "inv-amount",
+        "css": null,
+        "tag": null
+      },
+      "value": null,
+      "url": null,
+      "extract_key": "amount",
+      "risk": "read",
+      "requires_approval": false
+    },
+    {
+      "id": "5cf38d78",
+      "intent": "Read Suggested GL code from the source page",
+      "action": "extract",
+      "target": {
+        "role": null,
+        "name": "Suggested GL code",
+        "testid": "inv-gl",
+        "css": null,
+        "tag": null
+      },
+      "value": null,
+      "url": null,
+      "extract_key": "gl",
+      "risk": "read",
+      "requires_approval": false
+    },
+    {
+      "id": "589e6b52",
+      "intent": "Open LedgerOne \u2014 New bill",
+      "action": "navigate",
+      "target": null,
+      "value": null,
+      "url": "http://localhost:8000/erp/new",
+      "extract_key": null,
+      "risk": "read",
+      "requires_approval": false
+    },
+    {
+      "id": "104c76fc",
+      "intent": "Enter value into textbox 'Vendor name'",
+      "action": "fill",
+      "target": {
+        "role": "textbox",
+        "name": "Vendor name",
+        "testid": "field-vendor",
+        "css": null,
+        "tag": "input"
+      },
+      "value": "{{extract.vendor}}",
+      "url": null,
+      "extract_key": null,
+      "risk": "write",
+      "requires_approval": false
+    },
+    {
+      "id": "d063d3e1",
+      "intent": "Enter value into textbox 'Invoice number'",
+      "action": "fill",
+      "target": {
+        "role": "textbox",
+        "name": "Invoice number",
+        "testid": "field-invoice-number",
+        "css": null,
+        "tag": "input"
+      },
+      "value": "{{invoice_id}}",
+      "url": null,
+      "extract_key": null,
+      "risk": "write",
+      "requires_approval": false
+    },
+    {
+      "id": "05ef1109",
+      "intent": "Enter value into textbox 'Invoice date'",
+      "action": "fill",
+      "target": {
+        "role": "textbox",
+        "name": "Invoice date",
+        "testid": "field-invoice-date",
+        "css": null,
+        "tag": "input"
+      },
+      "value": "{{extract.date}}",
+      "url": null,
+      "extract_key": null,
+      "risk": "write",
+      "requires_approval": false
+    },
+    {
+      "id": "a97eef6e",
+      "intent": "Enter value into textbox 'Amount'",
+      "action": "fill",
+      "target": {
+        "role": "textbox",
+        "name": "Amount",
+        "testid": "field-amount",
+        "css": null,
+        "tag": "input"
+      },
+      "value": "{{extract.amount}}",
+      "url": null,
+      "extract_key": null,
+      "risk": "write",
+      "requires_approval": false
+    },
+    {
+      "id": "5c852d86",
+      "intent": "Enter value into combobox 'GL code'",
+      "action": "select",
+      "target": {
+        "role": "combobox",
+        "name": "GL code",
+        "testid": "field-gl-code",
+        "css": null,
+        "tag": "select"
+      },
+      "value": "{{extract.gl}}",
+      "url": null,
+      "extract_key": null,
+      "risk": "write",
+      "requires_approval": false
+    },
+    {
+      "id": "c5ee33a7",
+      "intent": "Submit the form via button 'Post bill'",
+      "action": "click",
+      "target": {
+        "role": "button",
+        "name": "Post bill",
+        "testid": "post-bill",
+        "css": null,
+        "tag": "button"
+      },
+      "value": null,
+      "url": null,
+      "extract_key": null,
+      "risk": "commit",
+      "requires_approval": true
+    }
+  ]
+}
