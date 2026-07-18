@@ -16,6 +16,7 @@ import { AssistantPage } from "./pages/AssistantPage";
 import { TeamPage } from "./pages/TeamPage";
 import { AuditPage } from "./pages/AuditPage";
 import { Tour } from "./Tour";
+import { CommandPalette } from "./CommandPalette";
 import { Icon } from "./Icon";
 import "./styles.css";
 
@@ -23,17 +24,9 @@ import "./styles.css";
 const savedTheme = localStorage.getItem("understudy_theme") || "light";
 document.documentElement.dataset.theme = savedTheme;
 
-function ThemeToggle() {
-  const [dark, setDark] = useState(
-    document.documentElement.dataset.theme === "dark");
-  function toggle() {
-    const next = dark ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    localStorage.setItem("understudy_theme", next);
-    setDark(!dark);
-  }
+function ThemeToggle({ dark, onToggle }: { dark: boolean; onToggle: () => void }) {
   return (
-    <button className="theme-toggle" onClick={toggle}>
+    <button className="theme-toggle" onClick={onToggle}>
       <Icon name={dark ? "sun" : "moon"} size={17} />
       <span>{dark ? "Light mode" : "Dark mode"}</span>
     </button>
@@ -57,7 +50,27 @@ function Shell() {
   const { user, logout } = useAuth();
   const [pending, setPending] = useState(0);
   const [tour, setTour] = useState(() => !localStorage.getItem("understudy_tour_seen"));
+  const [cmdk, setCmdk] = useState(false);
+  const [dark, setDark] = useState(() => document.documentElement.dataset.theme === "dark");
   function closeTour() { localStorage.setItem("understudy_tour_seen", "1"); setTour(false); }
+  function toggleTheme() {
+    const next = dark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("understudy_theme", next);
+    setDark(!dark);
+  }
+
+  // ⌘K / Ctrl+K opens the command palette from anywhere
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCmdk((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // keep the approvals badge fresh — the queue changes as runs hit gates
   useEffect(() => {
@@ -77,6 +90,11 @@ function Shell() {
           <span className="logo">U</span>
           <span>Understudy<small className="brand-sub">workflow automation</small></span>
         </div>
+        <button className="sb-search" onClick={() => setCmdk(true)}>
+          <Icon name="search" size={16} />
+          <span>Search…</span>
+          <kbd className="sb-kbd">⌘K</kbd>
+        </button>
         <NavItem to="/" end icon="dashboard" label="Dashboard" />
         <NavItem to="/assistant" icon="chat" label="Assistant" />
         <NavItem to="/workflows" icon="workflows" label="Workflows" />
@@ -98,7 +116,7 @@ function Shell() {
         </a>
 
         <div className="spacer" />
-        <ThemeToggle />
+        <ThemeToggle dark={dark} onToggle={toggleTheme} />
         <div className="sb-user">
           <div className="who">{user?.email}<br /><span style={{ opacity: .7 }}>admin · workspace</span></div>
           <a className="navitem" onClick={logout} style={{ cursor: "pointer" }}>
@@ -123,6 +141,13 @@ function Shell() {
       </div>
       <button className="help-fab" title="Take a tour" onClick={() => setTour(true)}>?</button>
       {tour && <Tour onClose={closeTour} />}
+      <CommandPalette
+        open={cmdk}
+        onClose={() => setCmdk(false)}
+        onToggleTheme={toggleTheme}
+        onStartTour={() => setTour(true)}
+        onLogout={logout}
+      />
     </div>
   );
 }

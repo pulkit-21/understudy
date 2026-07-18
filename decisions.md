@@ -1083,3 +1083,19 @@ learner must handle: read-live-and-post (1 input), all-operator-input create
 (N inputs), and gated state-change over an existing record (parameterized URL +
 inputs). That's the "learns *procedures*, not one macro" claim, demonstrated.
 85 tests green; ruff + mypy clean.
+
+---
+
+## D43 — ⌘K command palette (keyboard-first navigation + actions)
+
+**Decision.** Add a `CommandPalette` (⌘K / Ctrl+K, or the sidebar search box)
+that unifies navigation, quick actions (new chat, toggle theme, take tour, open
+mock apps, sign out), and **every learned workflow** into one fuzzy-searchable,
+keyboard-driven surface (↑/↓/↵/esc, grouped by section). Theme state was lifted
+out of the toggle into the Shell so the palette and the sidebar toggle share it.
+
+**Reasoning.** This is the single most-cited "premium" affordance in the
+reference app. It also scales: as more workflows are learned, ⌘K stays the
+fastest way to reach any of them without hunting the sidebar. Built dependency-
+free on the existing design tokens; verified in-browser (open, filter, keyboard
+nav) with zero console errors.
