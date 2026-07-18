@@ -35,7 +35,7 @@ import pytest
 # _clean_db already made.
 import app.main  # noqa: F401
 from app.db import Base, engine
-from app.models.trace import Trace
+from app.domain.trace import Trace
 from app.seed import build_demo_trace
 
 BASE = "http://localhost:8000"

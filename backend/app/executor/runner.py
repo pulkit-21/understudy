@@ -27,8 +27,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from ..models.trace import TargetInfo
-from ..models.workflow import (
+from ..domain.trace import TargetInfo
+from ..domain.workflow import (
     ActionType,
     ApprovalMode,
     WorkflowSpec,

@@ -6,8 +6,8 @@ live off the source page via `extract` steps that target the page's REAL
 testids, opens the requested record (not the demonstrated one), and never drops
 the approval gate. These are the properties that would silently break a replay.
 """
+from app.domain.workflow import ActionType, RiskLevel, WorkflowSpec
 from app.induction.heuristic import induce_heuristic
-from app.models.workflow import ActionType, RiskLevel, WorkflowSpec
 
 DEMO_LITERALS = ["INV-1001", "Northwind Logistics", "4820.00", "2026-06-02", "6100"]
 
@@ -31,7 +31,7 @@ def test_operator_supplied_field_becomes_a_second_parameter(demo_trace):
     a page become live extracts instead). So workflows can have as many inputs as
     the task genuinely needs — this one just needs one because the rest is read
     live."""
-    from app.models.trace import EventType, SemanticEvent, TargetInfo
+    from app.domain.trace import EventType, SemanticEvent, TargetInfo
 
     trace = demo_trace
     # operator types a cost-centre code (run-varying, not on the invoice page)

@@ -6,9 +6,9 @@ from __future__ import annotations
 from uuid import uuid4
 
 from ..db.repositories import WorkflowRepo
+from ..domain.workflow import WorkflowSpec
 from ..executor.manager import RunManager
 from ..executor.runner import Run
-from ..models.workflow import WorkflowSpec
 from .errors import Conflict, Invalid, NotFound
 
 

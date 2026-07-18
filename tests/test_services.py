@@ -12,8 +12,8 @@ import asyncio
 import pytest
 
 from app.db import SessionLocal, TraceRepo, UsageRepo, WorkflowRepo
+from app.domain.workflow import WorkflowStatus
 from app.induction.heuristic import induce_heuristic
-from app.models.workflow import WorkflowStatus
 from app.services.agent import AgentService
 from app.services.errors import Conflict, Invalid, NotFound
 from app.services.induction import InductionService

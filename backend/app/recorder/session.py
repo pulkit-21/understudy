@@ -18,7 +18,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ..models.trace import SemanticEvent, Trace
+from ..domain.trace import SemanticEvent, Trace
 
 INJECT_JS = (Path(__file__).parent / "inject.js").read_text()
 

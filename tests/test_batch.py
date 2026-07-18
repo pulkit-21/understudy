@@ -71,7 +71,7 @@ def test_multi_param_batch_uses_defaults(authed_client, org_id, stub_executor):
 def test_batch_requires_a_parameter(authed_client, demo_trace, stub_executor):
     client, org_id = authed_client
     from app.db import SessionLocal, WorkflowRepo
-    from app.models.workflow import WorkflowSpec
+    from app.domain.workflow import WorkflowSpec
     # a workflow with no parameters can't be batched
     spec = WorkflowSpec(name="no-params", steps=[])
     WorkflowRepo(SessionLocal).save(spec, org_id)

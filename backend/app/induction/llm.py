@@ -29,8 +29,8 @@ import json
 from collections.abc import Callable
 
 from ..config import get_settings
-from ..models.trace import Trace
-from ..models.workflow import WorkflowSpec
+from ..domain.trace import Trace
+from ..domain.workflow import WorkflowSpec
 
 # USD per input / output token, by model-id prefix. Used to meter induction cost
 # (the only place Understudy calls an LLM — runs are deterministic and free).

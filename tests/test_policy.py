@@ -8,9 +8,8 @@ import asyncio
 
 import pytest
 
-from app.executor.runner import Run, Runner, RunStatus
-from app.models.trace import TargetInfo
-from app.models.workflow import (
+from app.domain.trace import TargetInfo
+from app.domain.workflow import (
     ActionType,
     ApprovalMode,
     ApprovalPolicy,
@@ -18,6 +17,7 @@ from app.models.workflow import (
     WorkflowSpec,
     WorkflowStep,
 )
+from app.executor.runner import Run, Runner, RunStatus
 from tests.test_executor import FakeSink
 
 

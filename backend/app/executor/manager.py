@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from ..models.workflow import WorkflowSpec
+from ..domain.workflow import WorkflowSpec
 from .runner import PlaywrightSink, Run, RunEvent, Runner, RunStatus
 
 if TYPE_CHECKING:

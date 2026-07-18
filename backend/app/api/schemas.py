@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from ..models.workflow import WorkflowStatus
+from ..domain.workflow import WorkflowStatus
 
 
 class InduceBody(BaseModel):

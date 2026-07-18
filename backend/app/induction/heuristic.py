@@ -28,8 +28,8 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse
 
-from ..models.trace import EventType, ReadableField, TargetInfo, Trace
-from ..models.workflow import (
+from ..domain.trace import EventType, ReadableField, TargetInfo, Trace
+from ..domain.workflow import (
     ActionType,
     RiskLevel,
     WorkflowParameter,

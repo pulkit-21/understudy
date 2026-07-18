@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from ...models.trace import Trace
+from ...domain.trace import Trace
 from ...services.traces import TraceService
 from ..deps import User, current_user, get_trace_service
 from ..schemas import ReplayBody

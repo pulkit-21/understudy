@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from uuid import uuid4
 
 from ..db.repositories import WorkflowRepo
-from ..models.workflow import WorkflowSpec, WorkflowStatus
+from ..domain.workflow import WorkflowSpec, WorkflowStatus
 from .errors import Invalid, NotFound
 
 

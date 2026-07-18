@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from ...models.workflow import WorkflowSpec
+from ...domain.workflow import WorkflowSpec
 from ...services.workflows import WorkflowService
 from ..deps import User, current_user, get_workflow_service
 from ..schemas import StatusBody

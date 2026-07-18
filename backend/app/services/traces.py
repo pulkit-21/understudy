@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from ..db.repositories import ReplayRepo, TraceRepo
-from ..models.trace import Trace
+from ..domain.trace import Trace
 from .errors import NotFound
 
 

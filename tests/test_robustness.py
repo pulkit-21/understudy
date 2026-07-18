@@ -16,6 +16,14 @@ import time
 import pytest
 import uvicorn
 
+from app.domain.trace import TargetInfo
+from app.domain.workflow import (
+    ActionType,
+    RiskLevel,
+    WorkflowParameter,
+    WorkflowSpec,
+    WorkflowStep,
+)
 from app.executor.runner import (
     PlaywrightSink,
     Run,
@@ -25,14 +33,6 @@ from app.executor.runner import (
 from app.induction.heuristic import induce_heuristic
 from app.main import app
 from app.mockapps.seed import ERP
-from app.models.trace import TargetInfo
-from app.models.workflow import (
-    ActionType,
-    RiskLevel,
-    WorkflowParameter,
-    WorkflowSpec,
-    WorkflowStep,
-)
 
 PORT = 8778
 BASE = f"http://127.0.0.1:{PORT}"

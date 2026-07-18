@@ -12,9 +12,9 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..domain.trace import Trace
+from ..domain.workflow import WorkflowSpec
 from ..executor.runner import Run
-from ..models.trace import Trace
-from ..models.workflow import WorkflowSpec
 from .models import (
     ConversationRow,
     ReplayRow,
