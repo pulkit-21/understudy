@@ -253,9 +253,13 @@ def _build_cards(tools: AgentTools, steps: list[dict]) -> list[dict]:
                     run_ids.append(run["id"])
             if s["tool"] == "get_run" and r.get("id"):
                 run_ids.append(r["id"])
-            for w in r.get("workflows", []):
-                if isinstance(w, dict) and w.get("id"):
-                    wf_ids.append(w["id"])
+            # NB: only list_workflows returns a workflows LIST; get_dashboard
+            # returns a workflows COUNT (int) under the same key — guard for it.
+            wf_list = r.get("workflows")
+            if isinstance(wf_list, list):
+                for w in wf_list:
+                    if isinstance(w, dict) and w.get("id"):
+                        wf_ids.append(w["id"])
             if r.get("workflow_id") and s["tool"] == "induce_workflow":
                 wf_ids.append(r["workflow_id"])
             if s["tool"] == "get_workflow" and r.get("id"):

@@ -40,3 +40,12 @@ exclude = ["backend/alembic/", "tests/", "frontend/"]
 [[tool.mypy.overrides]]
 module = ["app.models.*", "app.executor.runner"]
 disallow_untyped_defs = true       # the safety core is fully typed
+
+[tool.coverage.run]
+source = ["backend/app"]
+omit = ["backend/app/recorder/*"]   # headful recorder needs a display, not in CI
+
+[tool.coverage.report]
+# Surface untested lines; the suite currently sits at ~85%.
+show_missing = true
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]

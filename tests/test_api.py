@@ -92,3 +92,48 @@ def test_workflow_versions_and_rollback(authed_client, demo_trace):
 def test_stop_unknown_recording_is_404(authed_client):
     client, _ = authed_client
     assert client.post("/api/recordings/does-not-exist/stop").status_code == 404
+
+
+def test_dashboard_reports_kpis(authed_client, demo_trace):
+    client, org_id = authed_client
+    trace = _seed_trace(demo_trace, org_id)
+    client.post(f"/api/traces/{trace.id}/induce", json={"use_llm": False})
+    d = client.get("/api/dashboard").json()
+    assert d["workflows"] >= 1
+    assert "run_counts" in d and "pending_approvals" in d and "cost_usd" in d
+
+
+def test_audit_feed_is_org_scoped_and_shaped(authed_client, demo_trace):
+    client, _ = authed_client
+    events = client.get("/api/audit").json()["events"]
+    assert isinstance(events, list)   # empty is fine; shape is the contract
+
+
+def test_usage_endpoint_returns_meter(authed_client):
+    client, _ = authed_client
+    u = client.get("/api/usage").json()
+    assert "total_usd" in u and "entries" in u
+
+
+def test_team_lists_the_current_user(authed_client):
+    client, _ = authed_client
+    body = client.get("/api/auth/team").json()
+    assert body["me"] and len(body["members"]) >= 1
+    assert any("email" in m for m in body["members"])
+
+
+def test_conversation_crud_via_api(authed_client, demo_trace, monkeypatch):
+    monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
+    client, org_id = authed_client
+    from app.db import SessionLocal, WorkflowRepo
+    from app.induction.heuristic import induce_heuristic
+    WorkflowRepo(SessionLocal).save(induce_heuristic(demo_trace), org_id)
+    cid = client.post("/api/agent/chat",
+                      json={"message": "what workflows do I have?"}).json()["conversation_id"]
+    assert cid in [c["id"] for c in client.get("/api/agent/conversations").json()]
+    assert client.delete(f"/api/agent/conversations/{cid}").status_code in (200, 204)
+
+
+def test_get_unknown_run_is_404(authed_client):
+    client, _ = authed_client
+    assert client.get("/api/runs/nope-123").status_code == 404

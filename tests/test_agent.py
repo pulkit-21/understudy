@@ -135,3 +135,54 @@ def test_chat_persists_conversation_history(authed_client, demo_trace, monkeypat
 async def test_unknown_tool_is_handled():
     res = await _tools("org-x").dispatch("delete_everything", {})
     assert "error" in res
+
+
+@pytest.mark.asyncio
+async def test_mock_agent_reports_status(demo_trace, org_id, monkeypatch):
+    monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
+    from app.agent import run_agent
+    WorkflowRepo(SessionLocal).save(induce_heuristic(demo_trace), org_id)
+    r = await run_agent([{"role": "user", "content": "give me a status summary"}], _tools(org_id))
+    assert any(s["tool"] == "get_dashboard" for s in r["steps"])
+    assert "workflow" in r["reply"].lower()
+
+
+@pytest.mark.asyncio
+async def test_mock_agent_reports_pending_approvals(demo_trace, org_id, monkeypatch):
+    monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
+    from app.agent import run_agent
+    r = await run_agent([{"role": "user", "content": "what's pending approval?"}], _tools(org_id))
+    assert any(s["tool"] == "list_runs" for s in r["steps"])
+
+
+@pytest.mark.asyncio
+async def test_mock_agent_help_fallback(org_id, monkeypatch):
+    monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
+    from app.agent import run_agent
+    r = await run_agent([{"role": "user", "content": "hello there"}], _tools(org_id))
+    assert "run" in r["reply"].lower() and r["steps"] == []
+
+
+@pytest.mark.asyncio
+async def test_mock_agent_batch_preview_then_confirm(demo_trace, org_id, monkeypatch):
+    """Multi-invoice ask previews a batch; a following 'yes' confirms it —
+    the two-phase safety contract, driven purely by the keyless agent."""
+    monkeypatch.setenv("UNDERSTUDY_AGENT_MOCK", "1")
+    from app.main import runs
+    started = []
+    monkeypatch.setattr(runs, "start_run", lambda *a, **k: started.append(1) or _Stub())
+    from app.agent import run_agent
+    WorkflowRepo(SessionLocal).save(induce_heuristic(demo_trace), org_id)
+    tools = _tools(org_id)
+
+    preview = await run_agent(
+        [{"role": "user", "content": "run INV-1002 and INV-1003"}], tools)
+    assert "start 2 runs" in preview["reply"].lower() and started == []
+
+    history = [
+        {"role": "user", "content": "run INV-1002 and INV-1003"},
+        {"role": "assistant", "content": preview["reply"]},
+        {"role": "user", "content": "yes"},
+    ]
+    done = await run_agent(history, tools)
+    assert len(started) == 2 and "started 2 runs" in done["reply"].lower()

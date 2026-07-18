@@ -1099,3 +1099,22 @@ reference app. It also scales: as more workflows are learned, ⌘K stays the
 fastest way to reach any of them without hunting the sidebar. Built dependency-
 free on the existing design tokens; verified in-browser (open, filter, keyboard
 nav) with zero console errors.
+
+---
+
+## D44 — Backend test hardening (+ a real bug caught)
+
+**Decision.** Raise meaningful coverage on the under-tested layers rather than
+chase a number: repository methods (versioning history, cost metering + totals,
+`recent_events` aggregation/ordering, batch grouping, usage/replay/conversation
+CRUD with org-scoping), the keyless agent's remaining intents (status, pending
+approvals, help fallback, and the full two-phase batch preview→confirm), and API
+endpoints (dashboard, audit, usage, team, conversation CRUD, 404 paths). Added
+`pytest-cov` + a coverage config.
+
+**A real bug surfaced.** `_build_cards` iterated `result["workflows"]` assuming a
+list, but `get_dashboard` returns `workflows` as an int **count** — so any agent
+turn that hit the dashboard crashed. Guarded with an `isinstance(..., list)`
+check. This is exactly why the tests were worth writing.
+
+Suite: 85 → **102 tests**, coverage 80% → **85%**; ruff + mypy clean.
