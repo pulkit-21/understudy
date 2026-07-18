@@ -9,7 +9,7 @@ db package changes when you switch backends.
 """
 from __future__ import annotations
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from ..config import get_settings
@@ -42,7 +42,17 @@ def make_engine(url: str | None = None) -> Engine:
         {"check_same_thread": False, "timeout": 30}
         if url.startswith("sqlite") else {}
     )
-    return create_engine(url, connect_args=connect_args, future=True)
+    eng = create_engine(url, connect_args=connect_args, future=True)
+    if url.startswith("sqlite"):
+        # WAL lets a reader and a writer proceed concurrently (default rollback
+        # journal serializes them), so concurrent runs don't trip over each other.
+        @event.listens_for(eng, "connect")
+        def _sqlite_pragmas(dbapi_conn, _record):  # pragma: no cover - driver glue
+            cur = dbapi_conn.cursor()
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA synchronous=NORMAL")
+            cur.close()
+    return eng
 
 
 engine: Engine = make_engine()

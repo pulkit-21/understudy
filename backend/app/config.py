@@ -14,9 +14,10 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Absolute path to the project-root .env, so the key is found no matter which
 # directory the server is launched from (repo root, backend/, or a container
@@ -82,6 +83,14 @@ class Settings(BaseSettings):
 
     # --- toggles -----------------------------------------------------------
     ratelimit: bool = Field(default=True, description="Enable request rate limiting.")
+    # NoDecode: take the env value raw (a comma-separated string) rather than
+    # JSON — _split_csv turns it into a list.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default=["http://localhost:5173", "http://localhost:8000"],
+        description="Allowed CORS origins. Prod serves the SPA same-origin so "
+        "needs none; set UNDERSTUDY_CORS_ORIGINS (comma-separated) for a "
+        "split-origin deploy.",
+    )
     agent_mock: bool = Field(
         default=False,
         description="Force the keyless deterministic agent even if a key is set.",
@@ -97,6 +106,14 @@ class Settings(BaseSettings):
         "Required to boot with the committed dev JWT secret; unset in production "
         "so a real deploy must supply its own secret (fail-closed).",
     )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _split_csv(cls, v: object) -> object:
+        # accept a comma-separated env string as well as a JSON/list value
+        if isinstance(v, str) and not v.strip().startswith("["):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
 
     @property
     def has_api_key(self) -> bool:

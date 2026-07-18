@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Integer, String
+from sqlalchemy import JSON, DateTime, Integer, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -71,6 +71,10 @@ class WorkflowVersionRow(Base):
     """An immutable snapshot of a workflow at a given version — enables history
     and rollback. Written on every save."""
     __tablename__ = "workflow_versions"
+    # one snapshot per (workflow, version): version_payload uses scalar_one_or_none
+    # and would 500 on a duplicate; this makes the invariant the schema's job.
+    __table_args__ = (UniqueConstraint("workflow_id", "version",
+                                       name="uq_workflow_version"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     workflow_id: Mapped[str] = mapped_column(String, index=True)

@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..db.models import (
@@ -116,6 +116,12 @@ class WorkflowRepo:
             if row is None or row.org_id != org_id:
                 return False
             s.delete(row)
+            # A hard delete removes the version history too — otherwise stale
+            # snapshots linger and a later workflow reusing the id collides on
+            # the (workflow_id, version) uniqueness.
+            s.execute(delete(WorkflowVersionRow).where(
+                WorkflowVersionRow.workflow_id == wf_id,
+                WorkflowVersionRow.org_id == org_id))
             s.commit()
             return True
 
@@ -273,6 +279,10 @@ class ReplayRepo:
     def save(self, trace_id: str, org_id: str, events: list) -> None:
         with self._sf() as s:
             row = s.get(ReplayRow, trace_id)
+            if row is not None and row.org_id != org_id:
+                # defense-in-depth: never let one org overwrite/steal another's
+                # replay (the service layer already gates on trace ownership).
+                raise PermissionError("replay belongs to another org")
             if row is None:
                 row = ReplayRow(trace_id=trace_id, org_id=org_id, created_at=_now())
             row.org_id = org_id

@@ -289,9 +289,12 @@ class PlaywrightSink:
     async def assert_text(self, target: TargetInfo, expected: str) -> str:
         loc, how = await self._locate(target)
         actual = (await loc.inner_text()).strip()
-        if expected not in actual:
+        # Exact (whitespace-normalized) match, not substring — a substring check
+        # is a false-positive trap ("100" would "match" "1000.00", "Posted"
+        # would "match" "Not Posted"). A validation checkpoint must be precise.
+        if " ".join(expected.split()) != " ".join(actual.split()):
             raise AssertionError(
-                f"validation failed: expected {expected!r} in {actual!r}")
+                f"validation failed: expected {expected!r}, got {actual!r}")
         return how
 
     async def screenshot(self) -> bytes | None:

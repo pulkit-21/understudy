@@ -61,6 +61,11 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
+# A real bcrypt hash compared against on the unknown-email login path, so an
+# absent account costs the same wall-clock as a present one (no timing oracle).
+_DUMMY_HASH = hash_password("timing-equalizer-not-a-real-password")
+
+
 # ---- tokens ------------------------------------------------------------------
 
 def issue_token(user: User) -> str:
@@ -115,7 +120,11 @@ class AuthRepo:
     def authenticate(self, email: str, password: str) -> User | None:
         with self._sf() as s:
             row = self._row_by_email(s, email)
-            if row is None or not verify_password(password, row.password_hash):
+            # Always run a bcrypt comparison, even when the email is unknown, so
+            # login timing doesn't reveal which emails have accounts.
+            hashed = row.password_hash if row is not None else _DUMMY_HASH
+            ok = verify_password(password, hashed)
+            if row is None or not ok:
                 return None
             return User(id=row.id, email=row.email, name=row.name,
                         org_id=row.org_id)

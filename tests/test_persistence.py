@@ -186,3 +186,33 @@ def test_conversation_repo_lifecycle(org_id):
 def _other_org() -> str:
     from app.main import auth
     return auth.create_org("other-tenant").id
+
+
+def test_replay_save_rejects_cross_org_overwrite(org_id):
+    from app.db import ReplayRepo
+    other = _other_org()
+    repo = ReplayRepo(SessionLocal)
+    repo.save("trace-x", org_id, [{"type": 2}])
+    import pytest
+    with pytest.raises(PermissionError):
+        repo.save("trace-x", other, [{"type": 9}])   # can't steal another org's replay
+
+
+def test_workflow_version_pair_is_unique(org_id):
+    """L12: (workflow_id, version) is unique — a duplicate snapshot would break
+    version_payload's scalar_one_or_none()."""
+    from sqlalchemy.orm import Session
+
+    from app.db import WorkflowVersionRow, engine
+    with Session(engine) as s:
+        s.add(WorkflowVersionRow(workflow_id="wf-z", org_id=org_id, version=1,
+                                 created_at=__import__("datetime").datetime.now(),
+                                 payload={}))
+        s.commit()
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+    with pytest.raises(IntegrityError), Session(engine) as s:
+        s.add(WorkflowVersionRow(workflow_id="wf-z", org_id=org_id, version=1,
+                                 created_at=__import__("datetime").datetime.now(),
+                                 payload={}))
+        s.commit()

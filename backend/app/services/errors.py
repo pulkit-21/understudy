@@ -51,3 +51,11 @@ def register_error_handlers(app: FastAPI) -> None:
     # One registration per concrete type keeps Starlette's handler lookup exact.
     for exc_type in (NotFound, Conflict, Invalid, ServiceError):
         app.add_exception_handler(exc_type, _handle)  # type: ignore[arg-type]
+
+    async def _perm(_request: Request, _exc: PermissionError) -> JSONResponse:
+        # A repo raises PermissionError on a cross-org id collision. Answer 404
+        # (identical to "doesn't exist") so it isn't a resource-existence oracle,
+        # and an uncaught 500.
+        return JSONResponse(status_code=404, content={"detail": "not found"})
+
+    app.add_exception_handler(PermissionError, _perm)  # type: ignore[arg-type]

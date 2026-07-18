@@ -74,3 +74,9 @@ def test_require_secure_is_fail_closed_on_dev_secret():
     # a real secret in production is fine
     Settings(_env_file=None, jwt_secret="a-real-strong-secret",
              dev_mode=False).require_secure()
+
+
+def test_cors_origins_accepts_comma_separated_env(monkeypatch):
+    monkeypatch.setenv("UNDERSTUDY_CORS_ORIGINS", "https://a.example, https://b.example")
+    s = Settings(_env_file=None)
+    assert s.cors_origins == ["https://a.example", "https://b.example"]

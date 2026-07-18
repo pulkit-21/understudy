@@ -175,7 +175,10 @@ def induce_heuristic(trace: Trace, name: str | None = None) -> WorkflowSpec:
                 steps.append(WorkflowStep(
                     intent=f"Open {noun} {{{{{key}}}}}",
                     action=ActionType.NAVIGATE,
-                    url=nxt.url.replace(token, f"{{{{{key}}}}}"),
+                    # replace ONLY the final path segment (the run-varying id),
+                    # not every occurrence — a short/numeric id can recur earlier
+                    # in the path (e.g. /portal/v1/invoice/1).
+                    url=f"{{{{{key}}}}}".join(nxt.url.rsplit(token, 1)),
                     risk=RiskLevel.READ,
                 ))
                 record_fields(len(steps) - 1, nxt.readable_fields)

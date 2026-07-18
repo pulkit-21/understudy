@@ -166,3 +166,22 @@ def test_spec_roundtrips_through_json(demo_trace):
     spec = induce_heuristic(demo_trace)
     restored = WorkflowSpec.model_validate_json(spec.model_dump_json())
     assert restored == spec
+
+
+def test_recurring_url_token_parameterizes_only_the_last_segment():
+    """L1: a token that also appears earlier in the path (e.g. /portal/v1/invoice/1)
+    must parameterize ONLY the final segment, not every occurrence."""
+    from app.domain.trace import EventType, SemanticEvent, TargetInfo, Trace
+
+    ev = [
+        SemanticEvent(type=EventType.NAVIGATE, url="http://x/portal/v1", ts_ms=0),
+        SemanticEvent(type=EventType.CLICK, url="http://x/portal/v1", ts_ms=1,
+                      target=TargetInfo(role="link", name="Open",
+                                        testid="open-1", tag="a")),
+        SemanticEvent(type=EventType.NAVIGATE, url="http://x/portal/v1/invoice/1",
+                      ts_ms=2),
+    ]
+    spec = induce_heuristic(Trace(name="t", events=ev, start_url="http://x/portal/v1"))
+    nav = [s for s in spec.steps if s.action == ActionType.NAVIGATE]
+    target = next(s for s in nav if "invoice" in (s.url or ""))
+    assert target.url == "http://x/portal/v1/invoice/{{invoice_id}}"  # v1 preserved

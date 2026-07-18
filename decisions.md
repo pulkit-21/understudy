@@ -1331,3 +1331,36 @@ not yet applied.
 stream_end); ruff + mypy + import-linter clean; verified end-to-end in the
 docker-compose stack (ticket POST + `?ticket=` stream, no token in any URL, no
 console errors).
+
+---
+
+## D52 — Fixes from the code review (batch 3: LOW tail + M7)
+
+Closed the remaining review items; 125 → **129 tests**, all gates clean.
+
+- **M7 — login timing oracle.** `authenticate` now runs a bcrypt compare against
+  a dummy hash on the unknown-email path, so an absent account costs the same
+  wall-clock as a present one. (Register still 409s on a taken email — inherent
+  to an immediate-token signup with no email-verification step; documented.)
+- **L1 — `_dynamic_url_token` replaced every occurrence of the id in the URL.**
+  Now replaces only the final path segment (`/portal/v1/invoice/1` no longer
+  corrupts the `v1`).
+- **L2 — `assert_text` was a substring check** ("100" matched "1000.00"). Now a
+  whitespace-normalized exact match.
+- **L4 — `ReplayRepo.save` missing the org guard** its siblings have. Added
+  (defense-in-depth; the service layer already gates the API path).
+- **L5 — repos' builtin `PermissionError` → uncaught 500 + existence oracle.**
+  Mapped to **404** (indistinguishable from "not found").
+- **L9 — SQLite locking under concurrent runs.** Enabled WAL + `synchronous=NORMAL`
+  (plus the 30s busy timeout from D50).
+- **L10 — rate limit keyed on the socket peer** (one shared bucket behind
+  Render's proxy). Now keys on the left-most `X-Forwarded-For` hop.
+- **L11 — `CORS allow_origins=["*"]`.** Now a configurable `cors_origins`
+  (default: localhost dev origins; prod is same-origin so needs none).
+- **L12 — no unique `(workflow_id, version)`.** Added the constraint + migration
+  0002; this surfaced that a hard `delete` left version snapshots behind, so
+  `WorkflowRepo.delete` now removes them too.
+
+Documented-and-left (conscious tradeoffs, not bugs): auth token in localStorage,
+a couple of intentionally-silent frontend catches, and the `useAsync`
+exhaustive-deps escape hatch.

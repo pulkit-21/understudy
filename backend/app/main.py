@@ -101,8 +101,8 @@ def create_app() -> FastAPI:
         RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
     app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(
-        CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
-        allow_headers=["*"],
+        CORSMiddleware, allow_origins=settings.cors_origins,
+        allow_methods=["*"], allow_headers=["*"],
     )
 
     # domain errors raised by the service layer -> HTTP status codes
