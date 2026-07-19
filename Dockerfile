@@ -18,7 +18,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY backend ./backend
 COPY scripts ./scripts
-COPY alembic.ini ./
+# NB: no alembic.ini needed — run_migrations() (db/migrate.py) builds the Alembic
+# config programmatically and points script_location at backend/alembic (copied
+# above). alembic.ini is only for the dev CLI.
 # built SPA served same-origin by FastAPI (see main.py); path matches
 # FRONTEND_DIST = <repo>/frontend/dist
 COPY --from=frontend /ui/dist ./frontend/dist
