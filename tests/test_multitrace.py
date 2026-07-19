@@ -141,7 +141,7 @@ def test_url_only_parameter_is_not_dropped():
                                                      testid="save")),
         ])
 
-    spec, report = induce_from_traces([order_trace("101"), order_trace("102")])
+    spec, _report = induce_from_traces([order_trace("101"), order_trace("102")])
     keys = {p.key for p in spec.parameters}
     assert "order_id" in keys                 # URL-only param kept
     assert "note" not in keys                 # constant fill demoted to literal

@@ -188,7 +188,7 @@ styles/       the hand-written CSS design system (light + dark via data-theme to
 
 ## Proof it works
 
-**145 tests** (`make test`), ~89% line coverage — meaningful, targeting the properties that matter:
+**147 tests** (`make test`), ~89% line coverage — meaningful, targeting the properties that matter:
 
 | Suite | What it locks down |
 |---|---|

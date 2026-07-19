@@ -60,7 +60,7 @@ Feature-complete demo + a production-hardening pass and three feature rounds.
 Highlights: multi-tenant auth, persistence (SQLite→Postgres via Alembic), the
 in-browser recorder + rrweb replay, conversational agent (Sonnet, keyless
 fallback), ⌘K palette, multi-trace induction, dry-run, drift pre-flight + LLM
-locator fallback, and scheduling — all gated. **~145 tests; ruff + mypy +
+locator fallback, and scheduling — all gated. **147 tests; ruff + mypy +
 import-linter clean.** The full, dated decision log is in `decisions.md`; the
 forward roadmap is the "What I'd build next" section of `README.md`.
 

@@ -18,7 +18,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -130,7 +130,21 @@ def create_app() -> FastAPI:
 
     @app.get("/healthz")
     def healthz():
-        return {"ok": True}
+        # Readiness, not just liveness: this is Render's healthCheckPath, so an
+        # instance whose DB is unreachable must report unhealthy (503) and be
+        # pulled from rotation rather than serve failing requests. A cheap
+        # `SELECT 1` is enough — SQLite is a local file (always up), Postgres a
+        # real dependency that can genuinely be down.
+        from sqlalchemy import text
+
+        from .db.session import SessionLocal
+        try:
+            with SessionLocal() as s:
+                s.execute(text("SELECT 1"))
+        except Exception as exc:  # pragma: no cover - exercised via deploy
+            return JSONResponse(
+                {"ok": False, "db": "down", "error": str(exc)}, status_code=503)
+        return {"ok": True, "db": "up"}
 
     _mount_frontend(app)  # keep last: the SPA catch-all is greedy
     return app
