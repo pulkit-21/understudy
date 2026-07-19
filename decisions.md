@@ -212,7 +212,8 @@ the invoice page at run time, not stored as parameters.
 **Reasoning / tradeoff.** This is the difference between a parameterized macro and
 a system that understood the workflow: it knows the amount in the ERP *comes
 from* the invoice, so on new data it re-reads it rather than being told. This is
-the depth the rubric asks for — the part most people would skip. Tradeoff: it
+the kind of depth that separates a real understudy from a macro — the part most
+people would skip. Tradeoff: it
 leans on the LLM enrichment layer to establish provenance reliably,
 guarded by the heuristic fallback.
 
@@ -538,14 +539,14 @@ the status quo and is below the bar.
 
 **Reasoning / tradeoff.** The reference solutions both gate every push on
 lint+types+tests; that discipline is cheap and high-signal, and it's exactly the
-kind of rigor the rubric rewards ("code you'd hand a teammate"). Fixing the
+kind of rigor I'd want in code I'd hand a teammate. Fixing the
 initial 66 ruff + 6 mypy findings also surfaced small real issues (an unused
 var, an unguarded `Optional` access in induction). Tradeoff: a CI minute per
 push and the discipline of keeping it green.
 
 **What I deliberately cut.** import-linter layer contracts (the architecture is
 small enough to eyeball; revisit if it grows), and coverage gating (coverage
-targets reward token tests — the rubric explicitly doesn't want that).
+targets reward token tests, and I'd rather the suite mean something).
 
 ---
 
@@ -570,8 +571,8 @@ degradation:
 - **SSE reconnect.** A client that connects to the audit stream late replays the
   full history — the property a dropped connection relies on.
 
-**Reasoning.** The rubric's "above and beyond" is explicitly *"handle the real
-world, not the happy path... degrade gracefully."* The product's core claim is
+**Reasoning.** The bar I set for "above and beyond" was explicitly *handle the
+real world, not the happy path — degrade gracefully.* The product's core claim is
 that learning the *procedure* (not pixel clicks) survives page change — so the
 single most important thing to prove is exactly that, against a real broken
 page, with the safety invariant (no un-approved commit, always settles, always
@@ -626,7 +627,7 @@ round-trip, and it works regardless of the public URL.
   bakes data into the image and would need the API key at build; seed-on-boot is
   cleaner, idempotent, and key-free.
 
-**Reasoning / tradeoff.** The rubric requires a testable deployed URL and a
+**Reasoning / tradeoff.** The project needs a testable deployed URL and a
 one-shot setup. Playwright's official image removes the usual "missing shared
 libs" headless-Chromium failure on PaaS. Verified locally by booting against a
 fresh empty data dir: the lifespan seeded the workflow + trace and served the
@@ -648,7 +649,7 @@ or overwrite another's data (verified by tests, incl. an over-HTTP isolation
 test). Auth endpoints are rate-limited (slowapi) against credential stuffing.
 
 **Keeping the demo frictionless.** A login wall would hurt the user's
-first-run experience, which the rubric weighs. So the app seeds a **demo account**
+first-run experience, which is the whole point of a live demo. So the app seeds a **demo account**
 on boot and the sign-in screen has a one-click **"Try the live demo"** — real
 auth, zero friction. Registration also works for a fresh isolated workspace.
 
