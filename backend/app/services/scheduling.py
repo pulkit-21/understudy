@@ -51,6 +51,11 @@ def run_due(now: datetime, schedules: ScheduleRepo, workflows: WorkflowRepo,
     fired = 0
     for sch in schedules.due(now):
         schedules.mark_fired(sch["id"], now)  # advance first: never spin on a bad one
+        # Don't pile up: skip if a prior run for this workflow is still live
+        # (running / awaiting approval). Otherwise an unapproved gated workflow,
+        # fired every tick, would hold every worker-pool slot until a human acts.
+        if runs.has_active_run(sch["workflow_id"], sch["org_id"]):
+            continue
         spec = workflows.load(sch["workflow_id"], sch["org_id"])
         if spec is None:
             continue

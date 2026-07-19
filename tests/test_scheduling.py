@@ -94,3 +94,21 @@ def test_service_guards(demo_trace, org_id):
     assert created["interval_minutes"] == 15
     with pytest.raises(NotFound):
         svc.delete("nope", org_id)
+
+
+def test_run_due_skips_when_a_prior_run_is_still_active(demo_trace, org_id, monkeypatch):
+    """Don't pile up: if a run for this workflow is still live (e.g. awaiting
+    approval), the scheduler skips this tick rather than exhausting the pool."""
+    from app.main import runs
+    spec = _saved_workflow(demo_trace, org_id)
+    repo = ScheduleRepo(SessionLocal)
+    repo.create(org_id, spec.id, {"invoice_id": "INV-1002"}, 60)
+
+    monkeypatch.setattr(runs, "has_active_run", lambda wf, org: True)
+    started = []
+    monkeypatch.setattr(runs, "start_run", lambda *a, **k: started.append(1))
+
+    fire_at = datetime.now(UTC) + timedelta(minutes=61)
+    fired = run_due(fire_at, repo, WorkflowRepo(SessionLocal), runs)
+    assert fired == 0 and started == []       # skipped, no new run
+    assert repo.due(fire_at) == []            # but still re-armed (not stuck)

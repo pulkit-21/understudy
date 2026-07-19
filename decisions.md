@@ -1477,3 +1477,38 @@ on its own, with the human gate intact. Tests cover repo CRUD + org-scoping, the
 due/fire/re-arm tick, the skip-a-deleted-workflow path, and the service guards
 (137 → 143). Verified live: schedule CRUD through the API + UI, scheduler loop
 running clean in the compose stack.
+
+---
+
+## D58 — Fixes from the new-feature review
+
+A focused review of the four new features (multi-trace, dry-run, locator
+fallback/pre-flight, scheduling) confirmed the safety invariants hold (no gate
+bypass; pre-flight read-only; LLM fallback non-load-bearing) and surfaced four
+issues — fixed with regression tests (143 → 145):
+
+- **Under-gated submits (safety).** Induction gated a form SUBMIT only when the
+  button label matched COMMIT_WORDS, so a submit button reading "Finish"/"Go"
+  was left ungated — a real run (and a dry run) would commit it silently. Now a
+  **SUBMIT is always gated** (a form submission is irreversible by definition),
+  and a plain CLICK whose label reads like a commit ("Pay"/"Confirm") is gated
+  too. Tighten-only; seeded workflows unchanged.
+- **Multi-trace dropped URL-only params.** `_rebuild_parameters` scanned only
+  `step.value`, so a param that appears solely in a navigate URL
+  (`/orders/{{order_id}}`) was silently dropped — the run form wouldn't prompt
+  for it and the run would `KeyError`. Now scans `step.url` too.
+- **Scheduler could exhaust the worker pool.** An unapproved gated workflow,
+  fired every tick, would hold a Chromium + a pool slot per fire until a human
+  acted — after `max_concurrency` fires, everything blocked. `run_due` now skips
+  a schedule while a prior run for that workflow is still live
+  (`RunManager.has_active_run`).
+- **RunManager leaked finished runs.** The in-memory maps were never pruned;
+  under the always-on scheduler they'd grow unbounded. Finished runs are now
+  evicted in the execute `finally` (durable state stays in the repo; get() falls
+  back to it).
+
+Left as documented boundaries: N concurrent *gated* runs still each hold a
+browser during the human wait (single-node scaling boundary); positional
+multi-trace alignment assumes same field order; the LLM-proposed selector is
+accepted on a match without semantic re-verification (off the happy path, and
+reported as "healed via llm").

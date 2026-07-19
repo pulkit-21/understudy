@@ -79,15 +79,21 @@ def diff_input_fields(traces: list[Trace]) -> ParameterReport:
     return ParameterReport(aligned=True, trace_count=len(traces), fields=fields)
 
 
+_PARAM_IN_TEXT = re.compile(r"\{\{\s*([a-z0-9_]+)\s*\}\}", re.I)  # any {{key}}, excl extract.
+
+
 def _rebuild_parameters(spec: WorkflowSpec,
                         prior: dict[str, WorkflowParameter]) -> None:
-    """Set spec.parameters to exactly the {{key}} refs still used by any step,
-    preserving prior descriptions/examples where we have them."""
+    """Set spec.parameters to exactly the {{key}} refs still used by any step —
+    in a fill/select VALUE or a navigate URL (a param can live only in the URL,
+    e.g. /orders/{{order_id}}) — preserving prior descriptions/examples."""
     used: list[str] = []
     for step in spec.steps:
-        m = _PARAM_REF.match(step.value or "")
-        if m and m.group(1) not in used:
-            used.append(m.group(1))
+        for field in (step.value, step.url):
+            for m in _PARAM_IN_TEXT.finditer(field or ""):
+                key = m.group(1)
+                if key != "extract" and key not in used:
+                    used.append(key)
     spec.parameters = [
         prior.get(k) or WorkflowParameter(
             key=k, description=f"Runtime input for {k}.", example="")

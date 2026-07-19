@@ -115,3 +115,34 @@ def test_induce_multi_needs_two_traces(org_id):
                            UsageRepo(SessionLocal))
     with pytest.raises(Invalid):
         asyncio.run(svc.induce_multi(["only-one"], org_id, use_llm=False))
+
+
+def test_url_only_parameter_is_not_dropped():
+    """Regression: a param that lives only in a navigate URL (never re-typed into
+    a field) must survive multi-trace induction — _rebuild_parameters scans
+    step.url, not just step.value."""
+    from app.domain.trace import EventType, SemanticEvent, TargetInfo, Trace
+
+    def order_trace(order_id: str) -> Trace:
+        b = "http://x"
+        return Trace(name="open order", start_url=f"{b}/portal", events=[
+            SemanticEvent(type=EventType.NAVIGATE, url=f"{b}/portal", ts_ms=0),
+            SemanticEvent(type=EventType.CLICK, url=f"{b}/portal", ts_ms=1,
+                          target=TargetInfo(role="link", name="Open",
+                                            testid=f"open-{order_id}", tag="a")),
+            SemanticEvent(type=EventType.NAVIGATE, url=f"{b}/portal/order/{order_id}",
+                          ts_ms=2),
+            SemanticEvent(type=EventType.FILL, url=f"{b}/portal/order/{order_id}",
+                          ts_ms=3, value="memo",  # constant across both -> literal
+                          target=TargetInfo(role="textbox", name="Note",
+                                            testid="field-note")),
+            SemanticEvent(type=EventType.SUBMIT, url=f"{b}/portal/order/{order_id}",
+                          ts_ms=4, target=TargetInfo(role="button", name="Save",
+                                                     testid="save")),
+        ])
+
+    spec, report = induce_from_traces([order_trace("101"), order_trace("102")])
+    keys = {p.key for p in spec.parameters}
+    assert "order_id" in keys                 # URL-only param kept
+    assert "note" not in keys                 # constant fill demoted to literal
+    assert spec.validate_references() == []   # and the spec is internally consistent

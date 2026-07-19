@@ -186,9 +186,14 @@ def induce_heuristic(trace: Trace, name: str | None = None) -> WorkflowSpec:
                 i += 2                      # consume the click AND its navigation
                 continue
             assert t is not None
+            # A click whose label reads like a commit ("Pay", "Confirm", …) —
+            # e.g. an action link rather than a form submit — is gated too.
+            commit_click = bool(COMMIT_WORDS.search(t.name or ""))
             steps.append(WorkflowStep(
                 intent=f"Click {t.describe()}",
-                action=ActionType.CLICK, target=t, risk=RiskLevel.READ,
+                action=ActionType.CLICK, target=t,
+                risk=RiskLevel.COMMIT if commit_click else RiskLevel.READ,
+                requires_approval=commit_click,
             ))
 
         elif e.type in (EventType.FILL, EventType.SELECT):
@@ -203,12 +208,15 @@ def induce_heuristic(trace: Trace, name: str | None = None) -> WorkflowSpec:
 
         elif e.type == EventType.SUBMIT:
             assert t is not None
-            is_commit = bool(COMMIT_WORDS.search(t.name or ""))
+            # A form SUBMIT is irreversible by definition — ALWAYS gate it,
+            # regardless of the button's wording. (The earlier heuristic only
+            # gated submits whose label matched COMMIT_WORDS, so a submit button
+            # labelled "Finish"/"Go" slipped through ungated — a real safety
+            # hole, and one that would let a dry run actually commit.)
             steps.append(WorkflowStep(
                 intent=f"Submit the form via {t.describe()}",
                 action=ActionType.CLICK, target=t,
-                risk=RiskLevel.COMMIT if is_commit else RiskLevel.WRITE,
-                requires_approval=is_commit,   # fintech default: gate commits
+                risk=RiskLevel.COMMIT, requires_approval=True,
             ))
 
         prev_type = e.type

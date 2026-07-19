@@ -91,10 +91,28 @@ class RunManager:
         finally:
             await queue.put(None)  # SSE sentinel: stream is over
             self.repo.save(run, org_id, batch_id=batch_id)
+            # Evict the finished run from the in-memory maps — its durable state
+            # lives in the repo (get() falls back to it), and a late SSE
+            # subscriber replays history + stream_end. Without this the maps grow
+            # unbounded under the always-on scheduler.
             self.runners.pop(run.id, None)
+            self.runs.pop(run.id, None)
+            self.run_org.pop(run.id, None)
+            self.queues.pop(run.id, None)
+            self._tasks.pop(run.id, None)
 
     def _owns(self, run_id: str, org_id: str) -> bool:
         return self.run_org.get(run_id) == org_id
+
+    def has_active_run(self, workflow_id: str, org_id: str) -> bool:
+        """Is a run for this workflow still live (running / awaiting approval) in
+        this org? The scheduler uses it to avoid piling up unapproved runs that
+        would each hold a worker-pool slot."""
+        return any(
+            r.workflow_id == workflow_id and self.run_org.get(rid) == org_id
+            and r.status in (RunStatus.RUNNING, RunStatus.AWAITING_APPROVAL)
+            for rid, r in self.runs.items()
+        )
 
     def approve(self, run_id: str, org_id: str) -> bool:
         if not self._owns(run_id, org_id):
