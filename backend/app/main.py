@@ -107,7 +107,6 @@ def _mount_frontend(app: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     """Application factory: assemble and return the ASGI app."""
-    settings.require_secure()  # refuse to boot with the dev secret on a real deploy
     app = FastAPI(title="Understudy", version="0.1.0", lifespan=lifespan)
 
     # rate limiting (auth + expensive endpoints opt in via @limiter.limit)

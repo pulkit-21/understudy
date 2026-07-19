@@ -12,20 +12,25 @@ are overridable per-deployment.
 """
 from __future__ import annotations
 
+import logging
+import secrets
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+_log = logging.getLogger("understudy.config")
 
 # Absolute path to the project-root .env, so the key is found no matter which
 # directory the server is launched from (repo root, backend/, or a container
 # WORKDIR). backend/app/config.py -> parents[2] is the repo root.
 _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
-# The dev-only JWT secret. Committed on purpose for zero-config local runs; a
-# non-local deploy that still uses it is refused at boot (see require_secure).
+# The dev-only JWT secret. Committed on purpose for zero-config local runs;
+# outside dev mode it's auto-replaced with a generated secret so it never signs
+# real tokens (see Settings._never_ship_the_dev_secret).
 DEV_JWT_SECRET = "understudy-dev-secret-change-me-in-prod-0123456789"
 
 
@@ -110,9 +115,24 @@ class Settings(BaseSettings):
     dev_mode: bool = Field(
         default=False,
         description="Explicit local-dev acknowledgement (UNDERSTUDY_DEV_MODE). "
-        "Required to boot with the committed dev JWT secret; unset in production "
-        "so a real deploy must supply its own secret (fail-closed).",
+        "Lets the committed dev JWT secret be used as-is; in production the "
+        "committed default is auto-replaced with a generated one (see below).",
     )
+
+    @model_validator(mode="after")
+    def _never_ship_the_dev_secret(self) -> Settings:
+        """Outside explicit dev mode, never run with the committed (public) dev
+        JWT secret. If no UNDERSTUDY_JWT_SECRET was provided, mint a strong
+        random one for this process so a fresh deploy works out of the box
+        without ever signing tokens with a secret that's in the source tree. The
+        generated secret is per-process — set UNDERSTUDY_JWT_SECRET explicitly
+        for sessions that survive a restart or span multiple instances."""
+        if self.jwt_secret == DEV_JWT_SECRET and not self.dev_mode:
+            self.jwt_secret = secrets.token_urlsafe(48)
+            _log.warning(
+                "UNDERSTUDY_JWT_SECRET not set — generated an ephemeral secret "
+                "for this process. Set UNDERSTUDY_JWT_SECRET for stable sessions.")
+        return self
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -125,21 +145,6 @@ class Settings(BaseSettings):
     @property
     def has_api_key(self) -> bool:
         return bool(self.anthropic_api_key)
-
-    def require_secure(self) -> None:
-        """Fail fast on an insecure production configuration. Called at app
-        startup. Fail-closed: booting with the committed dev JWT secret is only
-        allowed when UNDERSTUDY_DEV_MODE is explicitly set. A real deploy leaves
-        it unset, so it MUST supply its own UNDERSTUDY_JWT_SECRET — otherwise
-        every token it signs is forgeable from the public source. (base_url is
-        not a usable signal: the container pins it to loopback so the executor
-        can drive the same process.)"""
-        if self.jwt_secret == DEV_JWT_SECRET and not self.dev_mode:
-            raise RuntimeError(
-                "Refusing to start with the committed dev JWT secret. Set a "
-                "strong UNDERSTUDY_JWT_SECRET, or UNDERSTUDY_DEV_MODE=1 for "
-                "local development."
-            )
 
     @property
     def use_mock_agent(self) -> bool:

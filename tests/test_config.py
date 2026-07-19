@@ -1,8 +1,6 @@
 """The central Settings object: env resolution, model split, derived flags."""
 from __future__ import annotations
 
-import pytest
-
 from app.config import Settings
 
 
@@ -61,19 +59,20 @@ def test_resolve_url_forces_the_psycopg_driver(monkeypatch):
     assert resolve_url() == "postgresql+psycopg://u:p@h/db"
 
 
-def test_require_secure_is_fail_closed_on_dev_secret():
+def test_dev_secret_is_auto_replaced_outside_dev_mode():
     from app.config import DEV_JWT_SECRET, Settings
 
-    # production (dev_mode off) + committed dev secret -> refuse to boot
-    with pytest.raises(RuntimeError):
-        Settings(_env_file=None, jwt_secret=DEV_JWT_SECRET,
-                 dev_mode=False).require_secure()
-    # explicit dev mode with the dev secret is fine
-    Settings(_env_file=None, jwt_secret=DEV_JWT_SECRET,
-             dev_mode=True).require_secure()
-    # a real secret in production is fine
-    Settings(_env_file=None, jwt_secret="a-real-strong-secret",
-             dev_mode=False).require_secure()
+    # production (dev_mode off) + committed dev secret -> auto-generated, never
+    # the public default (so a fresh deploy boots without manual config)
+    prod = Settings(_env_file=None, jwt_secret=DEV_JWT_SECRET, dev_mode=False)
+    assert prod.jwt_secret != DEV_JWT_SECRET and len(prod.jwt_secret) >= 32
+    # explicit dev mode keeps the stable committed secret for local dev
+    dev = Settings(_env_file=None, jwt_secret=DEV_JWT_SECRET, dev_mode=True)
+    assert dev.jwt_secret == DEV_JWT_SECRET
+    # an explicitly-provided secret is always respected verbatim
+    custom = Settings(_env_file=None, jwt_secret="a-real-strong-secret",
+                      dev_mode=False)
+    assert custom.jwt_secret == "a-real-strong-secret"
 
 
 def test_cors_origins_accepts_comma_separated_env(monkeypatch):
