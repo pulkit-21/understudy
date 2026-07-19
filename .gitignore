@@ -10,3 +10,6 @@ frontend/dist/
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# transient media-capture workspace
+scratch_record/
