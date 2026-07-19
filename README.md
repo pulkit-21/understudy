@@ -4,7 +4,7 @@
 
 Built for the *"learn a user's process by watching them, then do it for them"* problem, scoped to the workflow finance-operations teams actually drown in: moving data between systems that don't talk to each other — an invoice portal (**Vendra**) into an ERP (**LedgerOne**).
 
-> **Live demo:** _<paste your deployed URL here after `render.yaml` deploy>_ — click **"Try the live demo"** (no signup).
+> **Live demo:** **https://understudy-hurg.onrender.com** — click **"Try the live demo"** (no signup). Hosted on a free tier, so the first request may take ~30–60s to wake.
 > **Setup:** `make dev` (Docker) → http://localhost:5173, or `make install && make dev-native` → http://localhost:8000. The app seeds a demo account + three workflows on boot.
 > **Decisions log:** [`decisions.md`](decisions.md) — the real calls, alternatives, and trade-offs (start here to see how I think).
 
@@ -12,6 +12,7 @@ Built for the *"learn a user's process by watching them, then do it for them"* p
 
 ## Table of contents
 - [The demo in one paragraph](#the-demo-in-one-paragraph)
+- [Feature demos](#feature-demos)
 - [What it does](#what-it-does)
 - [Why this scoping](#why-this-scoping)
 - [Quick start](#quick-start)
@@ -45,6 +46,36 @@ A multi-tenant full-stack product, not a script:
 ## The demo in one paragraph
 
 A user demonstrates once: open the **Vendra** portal, open invoice INV-1001, read its fields, switch to the **LedgerOne** ERP, enter the bill, click *Post bill*. Understudy records **semantic events** (roles, labels, test-ids — never pixel coordinates), induces a **human-readable, parameterized workflow spec**, and can then run that procedure on invoices it has never seen. A run is given **only an invoice id** — vendor, date, amount and GL code are *read live* off each invoice's own page by learned `extract` steps. Because *Post bill* commits state, the induced spec flags it `requires_approval`; every replay **hard-pauses** there until a human approves, and every action lands in an audit log with actor identity (`agent` / `human`) and timestamp.
+
+## Feature demos
+
+> Short clips of each capability. All captured from the running app via `python scripts/capture_demos.py`.
+
+**Run on new data → gate → approve → posted.** Given only an invoice id, the run reads vendor/amount/GL live, hard-pauses at the *Post bill* gate, and posts only after a human approves.
+
+![Run, approval gate, and posting](docs/media/run-approve.gif)
+
+**Learn a legible, parameterized workflow.** One demonstration becomes an editable spec — each step's intent, its `{{parameter}}`/`{{extract.*}}` values, and the gated commit.
+
+![The learned workflow spec](docs/media/learn.gif)
+
+<table>
+<tr>
+<td width="50%"><b>Dry run / preview</b> — run up to the gate, read live values, commit nothing.<br><img src="docs/media/dry-run.gif" alt="Dry run preview"></td>
+<td width="50%"><b>Drift pre-flight</b> — check every target still resolves on the live pages before a run.<br><img src="docs/media/drift-preflight.gif" alt="Drift pre-flight"></td>
+</tr>
+<tr>
+<td><b>Multi-trace learning</b> — diff two recordings to tell parameters from constants.<br><img src="docs/media/multi-trace.gif" alt="Multi-trace parameter discovery"></td>
+<td><b>Scheduling</b> — run a workflow unattended on an interval, still gated.<br><img src="docs/media/schedule.gif" alt="Scheduling"></td>
+</tr>
+<tr>
+<td><b>Conversational agent</b> — discovers/runs workflows through the same gated tools; can't approve.<br><img src="docs/media/assistant.gif" alt="Conversational agent"></td>
+<td><b>In-browser recorder</b> — teach by doing; switch apps mid-recording from the recorder bar.<br><img src="docs/media/recorder.gif" alt="In-browser recorder"></td>
+</tr>
+<tr>
+<td colspan="2"><b>⌘K command palette + dark mode</b> — keyboard-first navigation to any workflow, action, or page.<br><img src="docs/media/palette-dark.gif" alt="Command palette and dark mode"></td>
+</tr>
+</table>
 
 ## Why this scoping
 
@@ -157,7 +188,7 @@ styles/       the hand-written CSS design system (light + dark via data-theme to
 
 ## Proof it works
 
-**143 tests** (`make test`), ~89% line coverage — meaningful, targeting the properties that matter:
+**145 tests** (`make test`), ~89% line coverage — meaningful, targeting the properties that matter:
 
 | Suite | What it locks down |
 |---|---|
