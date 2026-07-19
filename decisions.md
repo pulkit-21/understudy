@@ -1,39 +1,38 @@
 # decisions.md
 
 A running log of the real calls made while building **Understudy**. Not a
-changelog — a record of judgment under a 5-day clock. Each entry is: what I
-chose, what I seriously considered instead, why I went the way I did (including
-the tradeoff I accepted), and what I deliberately cut.
+changelog — a record of the engineering judgment behind the project. Each entry
+is: what I chose, what I seriously considered instead, why I went the way I did
+(including the tradeoff I accepted), and what I deliberately cut.
 
 Newest decisions are appended at the bottom, so this reads top-to-bottom as the
 build unfolded.
 
 ---
 
-## D1 — Which of the three problems, and how narrowly to scope it
+## D1 — Scoping: one concrete workflow, built deep
 
-**Decision.** Took problem #1 ("learn a user's process by watching them, then do
-it for them") and scoped it to a single, concrete workflow: moving invoice data
-from a vendor portal into an ERP, with a human approval gate before the
-irreversible posting step. I built the two systems as deterministic mock apps
-("Vendra" portal, "LedgerOne" ERP) so the demo is self-contained and
-reproducible.
+**Decision.** Scoped the product — "learn a user's process by watching them,
+then do it for them" — to a single, concrete workflow: moving invoice data from
+a vendor portal into an ERP, with a human approval gate before the irreversible
+posting step. I built the two systems as deterministic mock apps ("Vendra"
+portal, "LedgerOne" ERP) so the demo is self-contained and reproducible.
 
 **Alternatives considered.**
 - *General-purpose "record any website" tool.* The honest version of this is an
-  RPA product, and in 5 days it would be a shallow one.
+  RPA product, and on a short timeline it would be a shallow one.
 - *A different demo domain* (e.g. filling a signup form, scraping a table). Less
   risk, but also less signal.
 
-**Reasoning / tradeoff.** Zamp's product ("Pace") is a digital employee for
-finance ops — AP, reconciliation, ERP posting, with audit trails and human
-escalation. Choosing a finance portal→ERP workflow lets the same build
-demonstrate the general capability *and* speak directly to the domain the
-evaluator lives in. The tradeoff I accepted: by mocking both apps I don't prove
+**Reasoning / tradeoff.** Finance operations — AP, reconciliation, ERP posting,
+with audit trails and human escalation — is a domain where "a digital employee
+that learns a procedure" is genuinely useful, so a finance portal→ERP workflow
+lets the same build demonstrate the general capability *and* speak to a concrete,
+high-stakes use case. The tradeoff I accepted: by mocking both apps I don't prove
 the recorder survives a hostile real-world site (auth, CAPTCHA, iframes). I'd
 rather go deep on the *learning and replay* problem — the actual hard part —
-than spend the budget fighting Cloudflare. Depth over breadth is explicitly what
-the rubric rewards.
+than spend the budget fighting Cloudflare. Depth over breadth is the deliberate
+bet.
 
 **Deliberately cut.** Real third-party sites, credential/2FA handling,
 multi-site generalization. Listed as out-of-scope in the README rather than
@@ -79,18 +78,18 @@ window.
 **Alternatives considered.**
 - *Chrome extension (Web Store).* The "correct" long-term shape — it records in
   the user's own browser on real sites. But Web Store review takes days-to-weeks,
-  which fits no 5-day timeline.
-- *Unpacked/dev-mode extension.* Skips review, but forces every evaluator to
+  which fits no short timeline.
+- *Unpacked/dev-mode extension.* Skips review, but forces every user to
   side-load it and toggle developer mode — friction on the "setup experience"
   criterion, and it still can't be part of a hosted demo.
 
 **Reasoning / tradeoff.** Playwright gives me a headful record path locally *and*
 a headless replay path on a server from the same primitives, with zero install
-friction for the evaluator. I deliberately kept `inject.js` framework-agnostic
+friction for the user. I deliberately kept `inject.js` framework-agnostic
 and extension-portable, so the extension is a documented next step rather than a
 throwaway. Tradeoff: the local recorder needs a display, so on the deployed
 instance recording happens via a script/bookmarklet injected into the mock apps
-(Day 4) rather than the Playwright window.
+rather than the Playwright window.
 
 **Deliberately cut.** The extension itself. Called out in "what I'd build next."
 
@@ -214,7 +213,7 @@ the invoice page at run time, not stored as parameters.
 a system that understood the workflow: it knows the amount in the ERP *comes
 from* the invoice, so on new data it re-reads it rather than being told. This is
 the depth the rubric asks for — the part most people would skip. Tradeoff: it
-leans on the LLM enrichment layer to establish provenance reliably (Day 2 work),
+leans on the LLM enrichment layer to establish provenance reliably,
 guarded by the heuristic fallback.
 
 **Deliberately cut.** Cross-page provenance for values that aren't visible on a
@@ -230,9 +229,9 @@ single captured page. Scoped to fields present in a page-text snapshot.
 **Alternatives considered.**
 - *SQLite / Postgres.* Proper queries, concurrency, migrations.
 
-**Reasoning / tradeoff.** For a 5-day build the artifacts *are* the thing you
+**Reasoning / tradeoff.** For a lean build the artifacts *are* the thing you
 reason about — inspectable, diffable, and directly usable as test fixtures.
-Files let an evaluator `cat` a learned workflow and see exactly what was induced.
+Files let anyone `cat` a learned workflow and see exactly what was induced.
 Tradeoff: no concurrent-write safety and no rich query; fine at demo scale,
 documented as the boundary where a DB earns its place.
 
@@ -264,7 +263,7 @@ unauthenticated is a deliberate, stated tradeoff, not an oversight.
 
 **Reasoning / tradeoff.** Per-run isolation is correct and simple at demo scale;
 pooling is a real optimization with real complexity (lifecycle, cleanup on
-crash, cross-run bleed) that a 5-day demo doesn't need. Tradeoff: throughput and
+crash, cross-run bleed) that this demo doesn't need. Tradeoff: throughput and
 cold-start cost under load. Documented as an explicit scaling boundary rather
 than prematurely optimized.
 
@@ -594,7 +593,7 @@ start/stop** control, and a **first-run** intro banner + empty states.
 
 **Reasoning.** These aren't breadth for its own sake — each surfaces something
 the backend now does that was previously invisible: history proves runs persist;
-the trace view makes the "semantic, not pixel" claim legible to a reviewer; the
+the trace view makes the "semantic, not pixel" claim legible to a reader; the
 record button closes the record→learn→run loop inside the product. The recording
 control degrades honestly: on a headless host (the hosted demo) the demonstration
 browser can't launch, so it explains that recording is local and points to the
@@ -602,7 +601,7 @@ seeded demonstration instead — the real-world-failure discipline applied to UX
 
 **What I deliberately cut.** A charts/metrics dashboard (vanity for this
 surface), and editing/deleting traces (not part of the core loop). Kept the
-visual language identical to Day 3 so the app reads as one considered product.
+visual language identical to the rest of the app so it reads as one considered product.
 
 ---
 
@@ -648,7 +647,7 @@ repository layer filters and stamps by org, so a tenant physically cannot read
 or overwrite another's data (verified by tests, incl. an over-HTTP isolation
 test). Auth endpoints are rate-limited (slowapi) against credential stuffing.
 
-**Keeping the demo frictionless.** A login wall would hurt the evaluator's
+**Keeping the demo frictionless.** A login wall would hurt the user's
 first-run experience, which the rubric weighs. So the app seeds a **demo account**
 on boot and the sign-in screen has a one-click **"Try the live demo"** — real
 auth, zero friction. Registration also works for a fresh isolated workspace.
@@ -658,7 +657,7 @@ auth, zero friction. Registration also works for a fresh isolated workspace.
 have auth + tenancy. (b) Cookie/session auth — would make the SSE stream
 "just work" without a token in the URL, but adds CSRF surface and server-side
 session state; a stateless JWT is simpler and standard. (c) An external IdP
-(Auth0/Clerk) — overkill for a take-home and adds a hosted dependency.
+(Auth0/Clerk) — overkill for this project and adds a hosted dependency.
 
 **Tradeoffs accepted.** The SSE endpoint takes the JWT as a `?token=` query
 param because the browser EventSource API can't set an Authorization header —
@@ -749,7 +748,7 @@ updated architecture, LLD map, and 59-test proof table.
 into the mock apps so users record on the hosted demo) is listed as the top
 future-work item rather than built: the local Playwright recorder + the
 `POST /api/traces` upload path already cover recording, the boot seed gives
-evaluators a workflow to run immediately, and adapting inject.js from a
+users a workflow to run immediately, and adapting inject.js from a
 Playwright binding to a buffer-and-POST widget carried more risk than value at
 this stage. Called out honestly in the README rather than quietly skipped.
 
@@ -1055,7 +1054,7 @@ and payment testids are added. `record_payment` guards against double-payment.
 9 new contract tests pin the enriched surface (76 → 85 green). Verified in a
 headless browser: list, detail, and payments pages all render cleanly.
 
-**Reasoning.** The evaluators judge product thinking and depth; a portal with
+**Reasoning.** A portal with
 one flat field list undersells the system. Richer, realistic screens make the
 "learn any browser workflow" claim credible and give the conversational agent +
 recorder more genuinely different tasks to operate over.
@@ -1189,7 +1188,7 @@ the composition root.
 
 **Reasoning.** The behemoth router was the one part of the codebase that wasn't
 industry-standard: DTOs inline, DI by argument-threading, every endpoint in one
-function. The new layout is the shape a FastAPI reviewer expects — each resource
+function. The new layout is the shape a FastAPI engineer expects — each resource
 is findable, independently testable (dependencies are overridable), and the wiring
 lives in exactly one file. All 31 API routes preserved (verified against the
 OpenAPI schema); **102 tests green, ruff + mypy clean** at every stage; server
@@ -1233,7 +1232,7 @@ a headless browser with zero console errors.
 
 ## D49 — Restructure to a production-standard layout (matching the reference bar)
 
-**Decision.** Reshape both stacks to the conventional layered structure a reviewer
+**Decision.** Reshape both stacks to the conventional layered structure an engineer
 expects, benchmarked against the reference projects, keeping all 120 tests green
 through every move (one commit per rename).
 
@@ -1261,8 +1260,8 @@ JSON so the data model is legible without running anything.
 per-file would fragment cohesive aggregates. `decisions.md` stays at the root:
 it's a required deliverable, not clutter.
 
-**Reasoning.** The logic was already layered; what was missing was the *shape* a
-reviewer reads structure from — findable modules, a composition root, an
+**Reasoning.** The logic was already layered; what was missing was the *shape* an
+engineer reads structure from — findable modules, a composition root, an
 enforced dependency direction, and a one-command dev environment. import-linter
 turns the architecture from a claim into a build gate.
 
@@ -1472,7 +1471,7 @@ the app lifespan only when `UNDERSTUDY_SCHEDULER_ENABLED` is set (off in tests).
 `POST/GET/DELETE /api/schedules` + `/toggle`, a Schedules page + nav + ⌘K entry.
 
 **Why it matters.** This is what makes Understudy feel like a "digital employee"
-(Zamp's Pace framing) rather than a button: it can watch for work and start it
+(the "digital employee" framing) rather than a button: it can watch for work and start it
 on its own, with the human gate intact. Tests cover repo CRUD + org-scoping, the
 due/fire/re-arm tick, the skip-a-deleted-workflow path, and the service guards
 (137 → 143). Verified live: schedule CRUD through the API + UI, scheduler loop

@@ -1,6 +1,6 @@
 """Seed the data directory with the demonstration trace and its induced
 workflow, so a fresh checkout (or the deployed instance) has something to
-show before anyone records: the evaluator can immediately run the learned
+show before anyone records: a new user can immediately run the learned
 workflow on an unseen invoice.
 """
 from __future__ import annotations

@@ -1,144 +1,76 @@
-# CLAUDE.md — Understudy build guide
+# CLAUDE.md — contributor & agent guide
 
-Context for Claude Code sessions. Read README.md first for the product story.
-
-> **Status (current):** Days 1–5 complete, plus a production-hardening pass.
-> Foundation: React control panel, auth + multi-tenancy, persistence
-> (SQLAlchemy + Alembic, SQLite→Postgres), CI + ruff + mypy, robustness suite
-> (self-healing selectors, safe failure, concurrency, SSE replay), in-browser
-> recorder + rrweb session replay, Docker/`render.yaml` deploy with seed-on-boot.
-> Hardening pass (D40–D45): central `pydantic-settings` config; conversational
-> agent split onto **claude-sonnet-5** (induction stays on Opus); enriched mock
-> apps (invoice PO/tax/due/status/line-items + filters, LedgerOne payment
-> lifecycle); a **third seeded workflow** (gated bill payment); **⌘K command
-> palette** + a11y pass; backend test hardening (coverage 80%→85%, a real
-> `_build_cards` bug caught) and an end-to-end API-key delivery fix.
-> **102 tests green; eval 8/8 + safe-fail.** Full decision log in
-> `decisions.md` (D1–D45). The section below is the original Day-1 handoff.
+Working context for Claude Code sessions and new contributors. Read `README.md`
+first for the product story and architecture; this file is the short operating
+manual and the invariants you must not regress.
 
 ## What this is
 
-5-day take-home for Zamp.ai (fintech AI-agents company; product "Pace" is a
-"digital employee" for finance ops — AP, reconciliation, ERP posting, with
-audit trails and human escalation). Understudy is problem #2: learn a browser
-workflow by watching a demonstration, then automate it. The demo workflow —
-invoice portal → ERP posting with an approval gate — is chosen to mirror
-Zamp's own use cases. Evaluation criteria: problem framing, product thinking,
-UX, code quality, meaningful tests, docs, setup ease, velocity, depth.
+**Understudy** learns a browser workflow by watching a demonstration once, then
+runs it on new data — pausing at a human approval gate before anything
+irreversible. The showcase domain is finance operations (move a vendor invoice
+from a portal into an ERP and post the bill), which is why the demo ships two
+deterministic mock apps — **Vendra** (invoice portal) and **LedgerOne** (ERP) —
+as a stable, dependency-free stage. The design generalizes beyond that flow;
+the mock apps are just a reproducible stand-in for "some website you operate."
 
-## Current state (Days 1–2 complete — do not regress these)
+## Architecture at a glance
 
-### Day 2 additions (31 tests green; deterministic invoice_id-only)
-- **Deterministic provenance.** The heuristic inducer now (a) rewrites a click
-  that opens a run-varying URL (`open-INV-1001`) into a parameterized navigate
-  (`/portal/invoice/{{invoice_id}}`), and (b) turns values read off a page and
-  typed later into `extract` steps targeting the page's REAL testids. A run
-  needs ONLY `invoice_id`; vendor/date/amount/GL are read live. No key, works in
-  CI. (decisions.md D13.)
-- **`readable_fields`** on navigate events (trace model + inject.js + fixture):
-  structured provenance source, so extract targets are never invented. Verified
-  real inject.js against the live mock app. (D14.)
-- **LLM narrowed to legibility.** enrich_with_llm may change only name/
-  description/intent; `validate_enrichment` (pure, unit-tested) rejects any
-  structural change and falls back to the deterministic draft. Model default is
-  now `claude-opus-4-8`. (D15, D16.)
-- **API body bug fixed.** Request models were function-local → FastAPI demoted
-  bodies to query params → every body endpoint 422'd. Hoisted to module scope;
-  added HTTP-layer tests. (D17.)
-- **Recording endpoints.** POST /api/recordings/start (headful, local) + /stop
-  → saved trace; hosted path still via inject.js → /api/traces. (D18.)
-- eval + e2e now run invoice_id-only (prove live extraction); eval also checks
-  the extracted vendor. Still 8/8.
+Layered, and enforced (`lint-imports`): `api → services → repos → domain`, with
+`clients`/`prompts`/`engine`/`agents` as supporting layers and `container.py` as
+the composition root. See the module map in `README.md`. Start reading at
+`domain/` (the `Trace` and `WorkflowSpec` IR) — everything else serves that IR.
 
-### Day 1 (tested, all core paths):
-- Deterministic mock apps: Vendra portal (/portal) + LedgerOne ERP (/erp),
-  stable data-testids, seeded data, /erp/_reset hook. Contract-tested.
-- Trace model (semantic events) + inject.js recorder script (accessible-name
-  computation, composedPath for shadow DOM, input collapsing to FILL on
-  change, password fields never recorded, page_text snapshots on navigate
-  for provenance).
-- Playwright demonstration-browser recorder (RecordingSession) — headful,
-  local use; traces persist as JSON (TraceStore).
-- WorkflowSpec IR: per-step natural-language intent, {{param}} and
-  {{extract.*}} templating, risk levels, requires_approval, and
-  validate_references() (catches undeclared refs, extract-before-produce,
-  and commit-without-gate).
-- Heuristic induction (offline, deterministic): parameterizes dynamic values,
-  flags commit submits for approval, keeps spontaneous navigations
-  (regression-tested — dropping them stranded replays).
-- LLM enrichment layer (anthropic sdk, temp 0): provenance→extract steps,
-  intent rewriting; hard invariants enforced (never remove a gate, never
-  invent selectors); falls back to heuristic draft on any failure.
-- Executor: Runner walks spec, resolves templates, HARD-pauses at gated steps
-  (asyncio.Event, no timeout bypass), audit log with actor identity;
-  ActionSink boundary → PlaywrightSink (self-healing testid→role+name→css,
-  reports "healed" hops) and FakeSink for tests.
-- RunManager + full REST API (traces, induce, workflows CRUD w/ version bump
-  + validation on PUT, runs, approve/reject, SSE event stream w/ history
-  replay + keepalive).
-- e2e test: real Chromium, demo on INV-1001 → run on INV-1005, gate held,
-  ERP row asserted. Eval harness: 8/8 invoices pass.
-- Dockerfile (mcr.microsoft.com/playwright/python base), seed script.
+The pipeline: **record** (`recorder/` + `mockapps/static/recorder.js`) →
+**induce** (`induction/`: deterministic heuristic, optional LLM legibility pass,
+multi-trace diffing) → **run** (`engine/`: `Runner` walks the spec, gates
+irreversible steps, `PlaywrightSink` resolves targets with a self-healing chain)
+→ **govern** (approvals, audit, policy, schedules).
 
 ## Conventions
 
-- Python 3.11+, pydantic v2, async throughout the executor/recorder.
-- Data artifacts (traces, specs, run logs) are JSON files under
-  UNDERSTUDY_DATA (default ./data) — inspectable, diffable, fixture-able.
-- Every risky invariant gets a test. FakeSink for executor logic; real
-  Chromium only in tests marked e2e.
-- Never weaken: gates are non-bypassable; enrichment may never remove one;
-  unresolved {{refs}} fail the run rather than typing literals.
+- Python 3.11+, Pydantic v2, async throughout the executor/recorder.
+- Repositories are the only layer that touches the ORM, and every method is
+  org-scoped (multi-tenant isolation is a hard property).
+- Services are HTTP-agnostic: they raise the domain errors in
+  `services/errors.py`, which a handler maps to status codes. Controllers stay
+  thin (parse → call service → return).
+- Every risky invariant gets a test. `FakeSink` for executor logic; real
+  Chromium only in tests marked `e2e`.
+- `make test` / `make lint` before a commit; keep ruff + mypy + import-linter
+  green. Config is centralized in `config.py` (`pydantic-settings`); never read
+  `os.environ` directly elsewhere.
 
-## Remaining plan
+## Invariants — never weaken these
 
-### Day 2 — DONE (see decisions.md D13–D18)
-Provenance made deterministic (invoice_id-only, in CI), readable_fields capture,
-LLM narrowed to legibility with a structural invariant, model → opus-4-8, latent
-API body bug fixed, recording endpoints wired, snapshot/invariant/API tests
-added. 31 tests green; eval 8/8 with live extraction.
+- **Gates are non-bypassable.** A `requires_approval` step hard-pauses (an
+  `asyncio.Event`, no timeout escape) until a human releases it. A form SUBMIT
+  is always gated; the LLM enrichment pass may never remove a gate or change the
+  approval policy (`validate_enrichment` enforces it; it falls back to the
+  deterministic draft on any structural change).
+- **The agent cannot approve.** The conversational agent has no approve/reject
+  tool — it can start work, only a human releases a gate.
+- **Determinism first.** Replays use the spec's literal targets; the LLM locator
+  is a last-resort fallback behind the deterministic chain and is reported when
+  it fires. An unresolved `{{ref}}` fails the run rather than typing the literal.
 
-### Day 3 — React control panel (frontend/)
-Vite + React. Pages: Traces (list, induce button), Workflow detail (editable
-step list — rename intent, toggle requires_approval, edit params; PUT back;
-surface 422 validation problems), Run view (params form, live SSE audit log,
-screenshot strip, big Approve/Reject when awaiting_approval). Deploy note:
-serve built assets from FastAPI (StaticFiles) to keep one service.
-UI copy: buttons say what they do ("Post bill", "Approve step"); audit log
-rows show actor + timestamp. Keep visual design quiet and product-like; the
-star of the UI is the legible workflow spec.
+## Current status
 
-### Day 4 — deployed recording + live view + hardening
-1. Deployed recording story (no display on server): serve inject.js as a
-   <script> tag injected into the mock apps when ?record=1 (or a small
-   bookmarklet), buffering events client-side and POSTing the trace to
-   /api/traces on "stop". This gives evaluators record→learn→run entirely
-   in the hosted demo. (The Playwright recorder remains the local path.)
-2. Screenshot streaming: on_step hooks already exist conceptually — have
-   Runner call sink.screenshot() after each step, push base64 over the SSE
-   stream (new event kind "frame").
-3. Railway deploy: Dockerfile ready; ≥1–2GB RAM; set UNDERSTUDY_BASE_URL to
-   the public URL; run seed on boot; /healthz for the platform. Warm before
-   demoing. Frontend can stay same-origin (StaticFiles) — simplest.
+Feature-complete demo + a production-hardening pass and three feature rounds.
+Highlights: multi-tenant auth, persistence (SQLite→Postgres via Alembic), the
+in-browser recorder + rrweb replay, conversational agent (Sonnet, keyless
+fallback), ⌘K palette, multi-trace induction, dry-run, drift pre-flight + LLM
+locator fallback, and scheduling — all gated. **~145 tests; ruff + mypy +
+import-linter clean.** The full, dated decision log is in `decisions.md`; the
+forward roadmap is the "What I'd build next" section of `README.md`.
 
-### Day 5 — polish, docs, screencast
-- README: add deployed URL, 2–3 min Loom, architecture diagram image,
-  "what I'd build next" (multi-trace diffing to find parameters, LLM locator
-  fallback when all three strategies miss, Chrome-extension recorder —
-  unpacked only, store review doesn't fit any short timeline).
-- Run eval.py fresh; paste the table into README.
-- Failure-mode pass: dead browser, SSE reconnect, concurrent runs.
+## Sharp edges (deliberate boundaries)
 
-## Sharp edges / decisions already made
-
-- Executor is deterministic-first; LLM locator fallback is a STRETCH, wired
-  behind the existing "healed" reporting. Do not make the happy path
-  LLM-dependent — reproducibility and auditability are the point.
-- RunManager launches one Chromium per run: acceptable for demo scale;
-  document as a scaling boundary, don't build pooling now.
-- ERP state is in-memory: resets on redeploy — a feature for a demo. The
-  _reset endpoint is intentionally unauthenticated in the sandbox; say so.
-- Recorder ignores clicks on inputs (noise); FILL on change carries intent.
-  Known gap: contenteditable, drag-drop, file uploads — out of scope, listed.
-- If deploying fights back >½ day: local backend + deployed frontend +
-  screencast, stated plainly in the README.
+- `RunManager` launches one Chromium per run and a gated run holds its slot
+  during the human wait — a single-node scaling boundary, documented, not yet
+  pooled across nodes.
+- The mock ERP state is in-memory and resets on redeploy — intentional for a
+  reproducible demo. Destructive/test hooks (e.g. `POST /erp/_reset`) are gated
+  behind `UNDERSTUDY_ENABLE_TEST_HOOKS` (off in production).
+- The recorder captures clicks/fills/selects/submits and page snapshots; known
+  gaps (contenteditable, drag-drop, file uploads) are out of scope and listed.

@@ -161,7 +161,7 @@ DEMO_PASSWORD = "understudy"
 
 def seed_demo_account(auth) -> str:
     """Ensure the demo account exists; return its org_id. The demo login on the
-    sign-in screen uses these credentials so evaluators can get in with one
+    sign-in screen uses these credentials so anyone can get in with one
     click (no real data behind it)."""
     existing = auth.authenticate(DEMO_EMAIL, DEMO_PASSWORD)
     if existing is not None:
