@@ -51,7 +51,7 @@ A user demonstrates once: open the **Vendra** portal, open invoice INV-1001, rea
 ## Feature demos
 
 > Short clips of each capability. All captured from the running app via `python scripts/capture_demos.py`.
-> For the full guided tour, see the **2-minute narrated walkthrough** ([`docs/media/walkthrough.mp4`](docs/media/walkthrough.mp4)) and the step-by-step [How to use it](#how-to-use-it) guide.
+> For the full guided tour, see the **2-minute narrated walkthrough** https://github.com/user-attachments/assets/86cc36f6-5f5e-4864-a377-7b66a558c7fc and the step-by-step [How to use it](#how-to-use-it) guide.
 
 **Run on new data → gate → approve → posted.** Given only an invoice id, the run reads vendor/amount/GL live, hard-pauses at the *Post bill* gate, and posts only after a human approves.
 
@@ -115,7 +115,9 @@ make down          # stop the docker stack   (make nuke also drops its volumes)
 
 ## How to use it
 
-> **Prefer to watch?** A 2-minute narrated, cursor-guided walkthrough covering every step below is at [`docs/media/walkthrough.mp4`](docs/media/walkthrough.mp4) (download or open it locally — GitHub won't play a repo file inline).
+> **Prefer to watch?** A 2-minute narrated, cursor-guided walkthrough covering every step below is at 
+https://github.com/user-attachments/assets/2580da9e-2072-400d-8c8b-4509261dca14
+
 
 Everything below works out of the box on the [live demo](https://understudy-hurg.onrender.com) or a local `make dev` — the app ships a seeded demo account and example workflows, so you can start on step 2.
 
