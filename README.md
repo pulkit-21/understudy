@@ -29,8 +29,11 @@ Built for the *"learn a user's process by watching them, then do it for them"* p
 A multi-tenant full-stack product, not a script:
 
 - **Learn by watching** — record a demonstration; induction produces a legible, editable, parameterized workflow spec (deterministic core + optional LLM legibility pass).
-- **Run on new data** — give it only an `invoice_id`; every other value is read live off the page. Self-healing locators survive page redesigns.
+- **Learn from a second example** — record the same task twice with different data and **multi-trace diffing** knows which values are parameters (they vary) vs. literals (constant), instead of guessing from one recording.
+- **Run on new data** — give it only an `invoice_id`; every other value is read live off the page. Self-healing locators (test-id → role+name → css → **LLM fallback**) survive page redesigns, and each hop is reported.
+- **Preview before you trust it** — a **dry run** executes up to the approval gate (reads live values, fills the form) and stops, committing nothing; a **drift pre-flight** checks every target still resolves on the live pages before a run.
 - **Policy-governed approvals** — per-workflow policy auto-posts small invoices and escalates the rest to a **human approval inbox**; irreversible steps are gated by construction.
+- **Run unattended** — **schedule** a workflow on a recurring interval; scheduled runs fire on their own but still pause at the approval gate (a schedule automates *starting* work, never *approving* it).
 - **Conversational agent** — a chat assistant (Claude Sonnet, with a keyless deterministic fallback) that discovers, learns, and runs workflows through the *same org-scoped, gated tools* the UI uses. It can start work but has **no approve tool** — releasing a gate stays human-only, by construction. A ⌘K command palette reaches any workflow, action, or page.
 - **Batch & scale** — run a workflow over a list of invoices through a bounded worker pool.
 - **Workflow lifecycle** — draft / published / archived, full version history with one-click rollback, duplicate, delete.
@@ -154,12 +157,13 @@ styles/       the hand-written CSS design system (light + dark via data-theme to
 
 ## Proof it works
 
-**120 tests** (`make test`), 89% line coverage — meaningful, targeting the properties that matter:
+**143 tests** (`make test`), ~89% line coverage — meaningful, targeting the properties that matter:
 
 | Suite | What it locks down |
 |---|---|
 | `test_e2e` | Real headless Chromium learns from INV-1001 and posts **INV-1005** (unseen), gate held, ERP row asserted field-for-field. This one test *is* the product. |
-| `test_executor` | Gate hard-pauses; rejection stops before commit; `{{extract}}` feeds later fills; an unresolved ref fails the run instead of typing `{{amount}}`. |
+| `test_executor` | Gate hard-pauses; rejection stops before commit (even if it arrives *before* the gate); a **dry run** previews up to the gate and commits nothing; **drift pre-flight** flags a moved target; `{{extract}}` feeds later fills; an unresolved ref fails the run instead of typing `{{amount}}`. |
+| `test_multitrace` / `test_scheduling` | Diffing two recordings promotes/demotes params vs. literals; the scheduler's due→fire→re-arm tick, org-scoping, and skip-a-deleted-workflow path. |
 | `test_policy` | Auto-approves below threshold (actor=policy); escalates at/above; unparseable amount → human; default always asks; **policy can't remove a commit gate**; awaiting state is persisted (inbox correctness). |
 | `test_robustness` | Self-heals when test-ids are removed; unknown invoice fails safely (no post, never gates); mid-run throw settles FAILED without committing; concurrent runs isolated; SSE replays full history to a late subscriber. |
 | `test_auth` / `test_batch` | Register/login/me; **HTTP tenant isolation** (org B can't see org A's data); batch fans out one governed run per value; the worker pool bounds concurrency. |
@@ -198,29 +202,28 @@ Single container: a multi-stage `Dockerfile` builds the React panel (node) then 
 
 ## What I'd build next
 
-- **Deployed in-page recorder** — serve `inject.js` into the mock apps (`?record=1`) so a user can record on the hosted demo without a local display.
-- **Multi-trace diffing** to infer parameters automatically (record the same task on two invoices → whatever differs is a parameter).
-- **Richer approval policy** — per-vendor / per-GL rules and a learning loop (repeated manual approvals become a suggested rule), keeping the tighten-only safety property.
-- **LLM locator fallback** as a fourth strategy when all three deterministic locators miss — behind the existing "healed" reporting.
-- **Durable, scaled execution** — managed Postgres by default + a persistent run queue (the bounded pool is the current single-node boundary).
+- **Approval-policy learning loop** — repeated manual approvals of similar invoices become a *suggested* per-vendor / per-GL rule, keeping the tighten-only safety property (today's policy is amount-threshold only).
+- **Data-driven triggers** — beyond the interval scheduler, fire a workflow when new work appears (e.g. a new *Approved* invoice in the portal), not just on a clock.
+- **Durable, scaled execution** — a persistent run queue and browser-pool workers across nodes (the in-process bounded pool is the current single-node boundary); Postgres is already wired, just not the default.
+- **Correct-and-reteach** — fix a mis-learned step from a run and fold the correction back into the workflow (human-in-the-loop learning).
 
 ## Repository map
 
 ```
 backend/app/
   api/        controllers — routers/ (per resource), deps.py (DI), schemas.py (request DTOs)
-  services/   use-cases (induction, runs, agent, metrics, workflows) + domain errors
+  services/   use-cases (induction, runs, agent, metrics, workflows, scheduling) + domain errors
   repos/      org-scoped repositories (one class per aggregate)
   domain/     Trace + WorkflowSpec + ApprovalPolicy — the pure IR (start here)
-  clients/    Anthropic LLM seam        prompts/   system prompts
-  engine/     Runner (policy gates, live frames), self-healing PlaywrightSink, RunManager (worker pool)
+  clients/    Anthropic LLM seam (+ locator fallback)   prompts/   system prompts
+  engine/     Runner (policy gates, dry-run, live frames), self-healing PlaywrightSink + drift pre-flight, RunManager (worker pool, scheduler)
   agents/     the conversational agent's tool-use loop
-  induction/  heuristic baseline + LLM enrichment (+ cost pricing)
+  induction/  heuristic baseline + multi-trace diffing + LLM enrichment (+ cost pricing)
   db/         ORM rows, session, migrations       recorder/  inject.js capture + Playwright session
   mockapps/   Vendra + LedgerOne (deterministic demo stage)
   config.py · container.py · auth.py · ratelimit.py · main.py   (cross-cutting + composition root)
 frontend/src/ routes/ · components/ · lib/(api,auth) · hooks/ · styles/
-tests/        e2e · executor · policy · robustness · auth · batch · induction · persistence · api · mockapps · services · config
+tests/        e2e · executor · policy · robustness · auth · batch · induction · multitrace · scheduling · persistence · api · mockapps · services · config
 docker-compose.yml · Makefile · Dockerfile(.dev) · render.yaml · scripts/(seed_demo, eval)
 samples/      example-trace.json + example-workflow.json — the data model, exported (see samples/README.md)
 decisions.md  the running decision log
