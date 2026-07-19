@@ -16,6 +16,7 @@ Built for the *"learn a user's process by watching them, then do it for them"* p
 - [What it does](#what-it-does)
 - [Why this scoping](#why-this-scoping)
 - [Quick start](#quick-start)
+- [How to use it](#how-to-use-it)
 - [Architecture (HLD)](#architecture-hld)
 - [Low-level design (LLD)](#low-level-design-lld)
 - [Proof it works](#proof-it-works)
@@ -50,6 +51,7 @@ A user demonstrates once: open the **Vendra** portal, open invoice INV-1001, rea
 ## Feature demos
 
 > Short clips of each capability. All captured from the running app via `python scripts/capture_demos.py`.
+> For the full guided tour, see the **2-minute narrated walkthrough** ([`docs/media/walkthrough.mp4`](docs/media/walkthrough.mp4)) and the step-by-step [How to use it](#how-to-use-it) guide.
 
 **Run on new data → gate → approve → posted.** Given only an invoice id, the run reads vendor/amount/GL live, hard-pauses at the *Post bill* gate, and posts only after a human approves.
 
@@ -105,11 +107,59 @@ make dev-native          # API + built UI on http://localhost:8000
 Without an `ANTHROPIC_API_KEY`, induction uses the deterministic heuristic and the agent uses a keyless fallback — identical safety behaviour, plainer wording.
 
 ```bash
-make test          # 120 tests, incl. the real-Chromium e2e + robustness/policy/tenancy suites
+make test          # 147 tests, incl. the real-Chromium e2e + robustness/policy/tenancy suites
 make ci            # ruff + mypy + import-linter + tests (what CI runs)
 make eval          # success-rate harness across all invoices + a failure case
 make down          # stop the docker stack   (make nuke also drops its volumes)
 ```
+
+## How to use it
+
+> **Prefer to watch?** A 2-minute narrated, cursor-guided walkthrough covering every step below is at [`docs/media/walkthrough.mp4`](docs/media/walkthrough.mp4) (download or open it locally — GitHub won't play a repo file inline).
+
+Everything below works out of the box on the [live demo](https://understudy-hurg.onrender.com) or a local `make dev` — the app ships a seeded demo account and example workflows, so you can start on step 2.
+
+### 1. Get in
+Open the app and click **"Try the live demo"** (no signup), or **Create an account** for your own isolated workspace. You land on the **Dashboard**.
+
+### 2. Run a workflow on new data — the core loop
+1. Sidebar → **Workflows** → open **"Post Vendor Invoice from Vendra to LedgerOne"**.
+2. In the run box, type an invoice it has never seen — e.g. **`INV-1005`** — and click **Run once**.
+3. Watch the **live view**: it opens the Vendra portal, reads the vendor / amount / GL code, switches to the LedgerOne ERP, and fills the bill — you supplied *only* the id.
+4. It **hard-pauses at "Post bill"** (the irreversible step). Click **Approve** to post, or **Reject** to stop — nothing is written to the ERP on reject.
+5. Find the finished run under **Runs**, with a step-by-step **audit trail** (`agent` vs `human`, timestamps).
+
+> Try any of **INV-1001 … INV-1008** — only the invoice id changes; every other field is read live off that invoice's own page.
+
+### 3. Teach it a brand-new workflow — learn by watching
+1. **Workflows → ⏺ Teach a new workflow → Start recording in Vendra.** A red **"Recording your demonstration"** bar appears.
+2. **Do the task once, cleanly:** open an invoice (e.g. `INV-1001`), then use the recorder bar's **Go to app → LedgerOne**, click **Enter new bill**, type the values you just read, and click **Post bill**.
+3. Click **Stop & save** — you return to Workflows with your new recording listed.
+4. Click **Learn this workflow** on that recording. Understudy induces a runnable, parameterized spec and **auto-gates** the Post step.
+5. **Make it robust:** record the *same* task a second time with a *different* invoice, tick **both** recordings, and click **"Learn from 2 recordings"** — it diffs them to tell **parameters** (values that varied) from **constants**.
+
+Then run it exactly as in step 2.
+
+### 4. Review & edit what it learned
+Open any workflow to see the spec as a **readable step list** — each step's plain-English intent, its `{{parameter}}` / `{{extract.*}}` values, and the gated commit. Edit inline; the API **refuses to save an ungated commit step**. Every save is **versioned** (one-click rollback), and you can duplicate, archive, or delete.
+
+### 5. Preview before you trust a run
+On a workflow page:
+- **Dry run** — reads live values and fills the entire form **up to the gate, committing nothing**.
+- **Check target health** (drift pre-flight) — verifies every element the workflow depends on still resolves on the live pages, so you catch a redesigned portal *before* it breaks a run.
+
+### 6. Approve or reject at the gate
+Runs that reach a commit gate wait in **Approvals** (the sidebar badge shows how many). Open one to see exactly what it's about to do, then **Approve** or **Reject**. Small invoices can **auto-post by policy**; everything else escalates here. The conversational agent can *start* runs but has **no approve tool** — releasing a gate is always human.
+
+### 7. Run unattended or in bulk
+- **Schedules** — pick a workflow and an interval; it fires on its own but still **pauses at the gate**.
+- **Batch** — run a workflow over a list of invoices at once, through a bounded worker pool.
+
+### 8. Ask the assistant
+Open **Assistant** (or press **⌘K → "assistant"**) and ask in plain English — e.g. *"Which of my workflows need approval?"* or *"Run the invoice workflow for INV-1006."* It drives the **same org-scoped, gated tools** as the UI.
+
+### Getting around
+**Dashboard** (KPIs + live view) · **Workflows** · **Runs** (history + audit) · **Approvals** (inbox) · **Schedules** · **Audit log** · **Team** · **Settings**. Press **⌘K** anywhere for the command palette; toggle **dark mode** from the sidebar.
 
 ## Architecture (HLD)
 
