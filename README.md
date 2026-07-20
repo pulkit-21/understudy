@@ -4,7 +4,6 @@
 
 Built for the *"learn a user's process by watching them, then do it for them"* problem, scoped to the workflow finance-operations teams actually drown in: moving data between systems that don't talk to each other — an invoice portal (**Vendra**) into an ERP (**LedgerOne**).
 
-> **Live demo:** **https://understudy-hurg.onrender.com** — click **"Try the live demo"** (no signup). Hosted on a free tier, so the first request may take ~30–60s to wake.
 > **Setup:** `make dev` (Docker) → http://localhost:5173, or `make install && make dev-native` → http://localhost:8000. The app seeds a demo account + three workflows on boot.
 > **Decisions log:** [`decisions.md`](decisions.md) — the real calls, alternatives, and trade-offs (start here to see how I think).
 
